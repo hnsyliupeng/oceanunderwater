@@ -31,7 +31,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:#00101a;font-family:
 window.__modOK=false;
 setTimeout(function(){ if(!window.__modOK){ var e=document.getElementById('perror'); if(e){ e.style.display='block'; e.textContent='⚠️ 模块未执行（3秒超时）\n请勿 file:// 双击，务必 python3 -m http.server 8000 后 http://localhost:8000/ocean-full.html\n或双击 run.bat / local.html'; } } }, 3500);
 </script>
-<script src="./vendor/es-module-shims.js" onerror="var s=document.createElement('script'); s.src='https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js'; document.head.appendChild(s);"></script>
 <script type="importmap">
 {
   "imports": {
@@ -46,6 +45,7 @@ setTimeout(function(){ if(!window.__modOK){ var e=document.getElementById('perro
   }
 }
 </script>
+<script async src="./vendor/es-module-shims.js" onerror="var s=document.createElement('script'); s.src='https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js'; s.async=true; document.head.appendChild(s);"></script>
 </head>
 <body>
 <div id="webgpu">检测...</div>
