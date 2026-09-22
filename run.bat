@@ -1,13 +1,14 @@
 @echo off
-title OceanUnderwater
+title OceanUnderwater 2.5 Offline
 cd /d %~dp0
-echo Starting OceanUnderwater...
+echo Starting OceanUnderwater 2.5 Offline...
+echo Pure offline, no CDN needed, vendor/three.module.js
 echo.
 
-if exist "node_modules\three\build\three.module.js" (
-  echo Found local three.js
+if exist "vendor\three.module.js" (
+  echo Found vendor\three.module.js - offline OK
 ) else (
-  echo node_modules not found, will use CDN fallback
+  echo vendor not found, please keep vendor folder!
 )
 
 echo Trying python...
@@ -25,10 +26,7 @@ if %errorlevel%==0 goto end
 echo.
 echo No python or npx found!
 echo Please install Python from https://python.org
-echo Or open local.html directly (file:// compatible)
 echo.
-echo Opening local.html...
-start local.html
 
 :end
 pause

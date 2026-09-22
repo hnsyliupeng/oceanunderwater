@@ -3,122 +3,56 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WebGPU Ocean — 修复版 无 TLA</title>
+<title>WebGPU Ocean 2.5 — 离线版</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#000;color:#e6f7ff;font-family:system-ui}
 #canvas{width:100%;height:100%;display:block}
-#ui{position:fixed;inset:0;pointer-events:none;z-index:10;display:flex;flex-direction:column;justify-content:space-between;padding:14px}
-.card{pointer-events:auto;background:linear-gradient(180deg,rgba(5,20,35,0.92),rgba(0,15,25,0.86));backdrop-filter:blur(20px);border:1px solid rgba(120,200,255,0.2);border-radius:16px;padding:12px 16px}
-.badge{font-size:9px;padding:3px 7px;border-radius:99px;background:rgba(100,180,255,0.2);border:1px solid rgba(100,180,255,0.4);color:#8dcfff}
-.row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-.btn{pointer-events:auto;cursor:pointer;background:rgba(20,55,75,0.85);border:1px solid rgba(100,200,255,0.22);color:#cdeeff;padding:5px 10px;border-radius:9px;font-size:11px;font-weight:600}
-.btn.active{background:linear-gradient(135deg,#00d4ff,#00ffaa);color:#001a12}
-#loader{position:fixed;inset:0;z-index:100;background:radial-gradient(100% 100% at 50% 15%,#0a2a4a 0%,#000a14 75%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;transition:opacity .6s;padding:20px}
+#loader{position:fixed;inset:0;z-index:100;background:#000a14;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;transition:opacity .6s}
 .bar{width:320px;height:4px;background:rgba(255,255,255,0.08);border-radius:99px;overflow:hidden}
-.bar div{height:100%;width:0%;background:linear-gradient(90deg,#00d4ff,#a0ffaa,#ffd166);transition:width .3s}
-#error{font-size:11px;color:#ff9e9e;max-width:560px;text-align:center;white-space:pre-wrap;background:rgba(80,0,0,0.25);border:1px solid rgba(255,100,100,0.25);padding:10px 14px;border-radius:12px;display:none}
+.bar div{height:100%;width:0%;background:linear-gradient(90deg,#00d4ff,#00ffaa);transition:width .3s}
+#error{font-size:11px;color:#ff9e9e;max-width:560px;white-space:pre-wrap;background:rgba(80,0,0,0.25);padding:8px 12px;border-radius:10px;display:none}
+.card{position:fixed;left:14px;top:14px;z-index:10;background:rgba(0,20,35,0.85);border:1px solid rgba(100,200,255,0.2);border-radius:12px;padding:10px 14px;font-size:11px}
+.btn{cursor:pointer;background:rgba(20,55,75,0.85);border:1px solid rgba(100,200,255,0.22);color:#cdeeff;padding:4px 8px;border-radius:8px;font-size:11px;margin-right:4px}
+.btn.active{background:linear-gradient(135deg,#00d4ff,#00ffaa);color:#001a12}
 </style>
 <script>
 window.__modOK=false;
-setTimeout(function(){ if(!window.__modOK){ var e=document.getElementById('error'); if(e){ e.style.display='block'; e.textContent='⚠️ 模块未执行（3秒超时）\n请勿 file:// 双击，务必 python3 -m http.server 8000 后 http://localhost:8000/webgpu.html\n或双击 run.bat'; } } }, 3500);
+setTimeout(function(){ if(!window.__modOK){ var e=document.getElementById('error'); if(e){ e.style.display='block'; e.textContent='模块未执行，请用 http://localhost:8000/webgpu.html'; } } }, 4000);
 </script>
 <script type="importmap">
 {
   "imports": {
-    "three": "./node_modules/three/build/three.module.js",
-    "three/addons/": "./node_modules/three/examples/jsm/",
-    "three-vendor": "./vendor/three.module.js",
-    "three-vendor-addons/": "./vendor/three-addons/",
-    "three-cdn": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "three-cdn-addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
-    "three-jsdelivr": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-    "three-jsdelivr-addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    "three": "./vendor/three.module.js",
+    "three/addons/": "./vendor/three-addons/"
   }
 }
 </script>
-<script src="./vendor/es-module-shims.js" onerror="var s=document.createElement('script'); s.src='https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js'; s.async=false; document.head.appendChild(s);"></script>
+<script src="./vendor/es-module-shims.js"></script>
 </head>
 <body>
 <div id="loader">
-  <h2 style="color:#e6fbff;font-size:24px;font-weight:900">WebGPU Ocean <span style="font-size:12px;opacity:0.6">修复版</span></h2>
-  <p style="color:rgba(180,220,255,0.6);font-size:11px;max-width:520px;text-align:center">无 top-level await · WebGPU优先 自动回退 WebGL2 · 本地→CDN 回退</p>
+  <h2>WebGPU Ocean 2.5 离线</h2>
   <div class="bar"><div id="pbar"></div></div>
   <p id="pstatus" style="font-size:11px;color:rgba(180,220,255,0.7)">初始化...</p>
   <p id="error"></p>
-  <div style="display:flex;gap:8px"><a href="/index.html" style="font-size:11px;color:#7fffd4;text-decoration:none;border:1px solid rgba(0,255,180,0.3);padding:4px 10px;border-radius:99px">主版 2.4</a><a href="/ocean-full.html" style="font-size:11px;color:#8dcfff;text-decoration:none;border:1px solid rgba(100,180,255,0.3);padding:4px 10px;border-radius:99px">Full 2.0</a></div>
+  <div><a class="btn" href="/index.html">主版 2.5</a></div>
 </div>
+<div class="card"><b>WebGPU 2.5 离线</b> · <span id="gpuBadge">检测中</span> · <span id="stats">加载中...</span></div>
 <canvas id="canvas"></canvas>
-<div id="ui">
-  <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
-    <div class="card">
-      <h1>🌊 WebGPU <span class="badge" id="gpuBadge">检测中</span> <span style="font-size:9px;padding:3px 7px;border-radius:99px;background:rgba(0,255,180,0.15);border:1px solid rgba(0,255,180,0.3);color:#7fffd4">RealIsland</span></h1>
-      <div class="row">
-        <button class="btn active" data-mode="orbit">环绕</button>
-        <button class="btn" data-mode="boat">帆船</button>
-        <button class="btn" data-mode="dive">潜水</button>
-      </div>
-      <div class="row"><button class="btn active" id="tgGrass">草 30K</button><button class="btn active" id="tgFish">鱼 100</button><button class="btn active" id="tgJelly">水母 10</button><button class="btn" id="tgWire">线框</button><a class="btn" href="/index.html">PBR主版</a></div>
-    </div>
-    <div class="card" id="stats" style="font-size:10.5px;color:rgba(180,220,255,0.7)">加载中...</div>
-  </div>
-  <div style="display:flex;justify-content:space-between;align-items:flex-end"><div class="card" style="font-size:10px;color:rgba(180,220,255,0.5);max-width:360px">WebGPU 需 Chrome 113+ / Edge 113+ 且开启硬件加速。本地运行：<code>run.bat</code> 双击或 <code>python3 -m http.server 8000</code> → <code>http://localhost:8000/webgpu.html</code></div></div>
-</div>
-
 <script type="module">
 window.__modOK=true;
 const pbar=document.getElementById('pbar'), pstatus=document.getElementById('pstatus'), perr=document.getElementById('error'), gpuBadge=document.getElementById('gpuBadge');
-function setProgress(p,m){ pbar.style.width=(p*100)+'%'; if(m) pstatus.textContent=m; console.log(`[${(p*100).toFixed(0)}%] ${m}`); }
+function setProgress(p,m){ pbar.style.width=(p*100)+'%'; if(m) pstatus.textContent=m; }
 function setError(m){ perr.style.display='block'; perr.textContent=m; console.error(m); }
-window.addEventListener('error', e=> setError('Error: '+e.message));
-window.addEventListener('unhandledrejection', e=> setError('Promise: '+(e.reason?.message||e.reason)));
-
-setProgress(0.05,'检测 WebGPU...');
-
-async function loadThree(){
-  const candidates=[
-    {name:'node_modules', three:'three', base:'three/addons/'},
-    {name:'vendor', three:'three-vendor', base:'three-vendor-addons/'},
-    {name:'unpkg CDN', three:'three-cdn', base:'three-cdn-addons/'},
-    {name:'jsdelivr CDN', three:'three-jsdelivr', base:'three-jsdelivr-addons/'},
-  ];
-  const direct=[
-    {name:'direct vendor', three:'./vendor/three.module.js', base:'./vendor/three-addons/'},
-    {name:'direct node_modules', three:'./node_modules/three/build/three.module.js', base:'./node_modules/three/examples/jsm/'},
-    {name:'direct unpkg', three:'https://unpkg.com/three@0.160.0/build/three.module.js', base:'https://unpkg.com/three@0.160.0/examples/jsm/'},
-    {name:'direct jsdelivr', three:'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js', base:'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/'},
-  ];
-  for(const cand of [...candidates, ...direct]){
-    try{
-      setProgress(0.07, `尝试 ${cand.name}...`);
-      console.log('try', cand.name);
-      const mod=await import(cand.three);
-      if(!mod || !mod.Color) throw new Error('invalid');
-      setProgress(0.12, `three.js OK: ${cand.name}`);
-      return {THREE:mod, base:cand.base};
-    }catch(e){
-      console.warn('fail', cand.name, e.message);
-      continue;
-    }
-  }
-  throw new Error('所有 three.js 源均失败，请 npm install 或检查网络');
-}
+window.addEventListener('error', e=> setError(e.message));
+window.addEventListener('unhandledrejection', e=> setError(e.reason?.message||e.reason));
 
 (async ()=>{
 try{
-  const loaded=await loadThree();
-  const THREE=loaded.THREE;
-  const addonBase=loaded.base;
-  setProgress(0.12,'three.js 加载成功: '+addonBase);
-
-  const [oc, noiseMod] = await Promise.all([
-    import(addonBase+'controls/OrbitControls.js'),
-    import(addonBase+'math/ImprovedNoise.js'),
-  ]);
-  const OrbitControls=oc.OrbitControls;
-  const ImprovedNoise=noiseMod.ImprovedNoise;
-
-  setProgress(0.18,'初始化渲染器 WebGPU 优先...');
+  const THREE = await import('three');
+  const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
+  const { ImprovedNoise } = await import('three/addons/math/ImprovedNoise.js');
 
   const canvas=document.getElementById('canvas');
   const scene=new THREE.Scene();
@@ -128,242 +62,82 @@ try{
   camera.position.set(50,24,65);
 
   let renderer, isWebGPU=false;
-
-  async function initRenderer(){
-    if(navigator.gpu){
-      try{
-        gpuBadge.textContent='尝试 WebGPU...';
-        const { WebGPURenderer } = await import(addonBase+'renderers/webgpu/WebGPURenderer.js');
-        const r=new WebGPURenderer({canvas, antialias:true});
-        await r.init();
-        r.setPixelRatio(Math.min(devicePixelRatio,1.8));
-        r.setSize(innerWidth,innerHeight);
-        r.toneMapping=THREE.ACESFilmicToneMapping;
-        r.toneMappingExposure=1.1;
-        renderer=r;
-        isWebGPU=true;
-        gpuBadge.textContent='WebGPU ✓';
-        gpuBadge.style.background='linear-gradient(135deg,rgba(0,212,255,0.3),rgba(0,255,170,0.3))';
-        setProgress(0.24,'WebGPU 渲染器已启用');
-        return r;
-      }catch(e){
-        console.warn('WebGPU init failed', e);
-        gpuBadge.textContent='WebGL2 回退';
-        setError('WebGPU 初始化失败，回退 WebGL2: '+e.message);
-      }
+  if(navigator.gpu){
+    try{
+      gpuBadge.textContent='尝试 WebGPU...';
+      const { WebGPURenderer } = await import('three/addons/renderers/webgpu/WebGPURenderer.js');
+      const r=new WebGPURenderer({canvas, antialias:true});
+      await r.init();
+      r.setPixelRatio(Math.min(devicePixelRatio,1.8));
+      r.setSize(innerWidth,innerHeight);
+      r.toneMapping=THREE.ACESFilmicToneMapping;
+      renderer=r; isWebGPU=true;
+      gpuBadge.textContent='WebGPU ✓';
+      setProgress(0.3,'WebGPU 已启用');
+    }catch(e){
+      console.warn('WebGPU fail', e);
+      gpuBadge.textContent='WebGL2 回退';
     }
-    const r=new THREE.WebGLRenderer({canvas, antialias:true, powerPreference:'high-performance'});
+  }
+  if(!renderer){
+    const r=new THREE.WebGLRenderer({canvas, antialias:true});
     r.setPixelRatio(Math.min(devicePixelRatio,1.8));
     r.setSize(innerWidth,innerHeight);
     r.toneMapping=THREE.ACESFilmicToneMapping;
-    r.toneMappingExposure=1.1;
     r.outputColorSpace=THREE.SRGBColorSpace;
-    r.shadowMap.enabled=true;
     renderer=r;
-    gpuBadge.textContent=navigator.gpu?'WebGL2 回退 (WebGPU可用)':'WebGL2';
-    setProgress(0.24,'WebGL2 渲染器已启用');
-    return r;
+    gpuBadge.textContent='WebGL2';
+    setProgress(0.3,'WebGL2 已启用');
   }
-
-  await initRenderer();
-
-  setProgress(0.3,'光照与噪声...');
 
   const sun=new THREE.Vector3(300,400,100);
-  const sunLight=new THREE.DirectionalLight(0xffffff, 2.8);
+  const sunLight=new THREE.DirectionalLight(0xffffff,2.8);
   sunLight.position.copy(sun);
-  sunLight.castShadow=true;
-  sunLight.shadow.mapSize.set(1024,1024);
   scene.add(sunLight);
-  scene.add(new THREE.HemisphereLight(0x8ecbff, 0x334455, 0.6));
+  scene.add(new THREE.HemisphereLight(0x8ecbff,0x334455,0.6));
 
   const noise=new ImprovedNoise();
-  function fbm(x,y,oct=3){
-    let v=0,a=0.5,f=1,max=0;
-    for(let i=0;i<oct;i++){ v+=noise.noise(x*f,y*f,0)*a; max+=a; a*=0.5; f*=2; }
-    return v/max;
-  }
+  function fbm(x,y,oct=3){ let v=0,a=0.5,f=1,max=0; for(let i=0;i<oct;i++){ v+=noise.noise(x*f,y*f,0)*a; max+=a; a*=0.5; f*=2; } return v/max; }
 
   const oceanParams={time:0, wind:0.9, waveScale:1.0};
-  const waves=[
-    {dir:[1,0.3], amp:1.6, freq:0.09, speed:1.3, steep:0.16},
-    {dir:[-0.7,0.8], amp:1.1, freq:0.13, speed:1.0, steep:0.14},
-  ];
+  const waves=[{dir:[1,0.3],amp:1.6,freq:0.09,speed:1.3,steep:0.16},{dir:[-0.7,0.8],amp:1.1,freq:0.13,speed:1.0,steep:0.14}];
   function norm2(v){ const l=Math.hypot(v[0],v[1])||1; return [v[0]/l,v[1]/l]; }
   waves.forEach(w=>w.dir=norm2(w.dir));
+  function sampleOcean(x,z,time,out={}){ let dx=0,dy=0,dz=0; const ws=oceanParams.waveScale, wind=oceanParams.wind; for(const w of waves){ const k=w.freq*ws, c=w.speed*(1+wind*0.2), A=w.amp*ws*(0.6+wind*0.5), Q=w.steep*wind*1.1; const ph=k*(w.dir[0]*x+w.dir[1]*z)-c*time, s=Math.sin(ph), cc=Math.cos(ph); dx+=Q*A*w.dir[0]*cc; dz+=Q*A*w.dir[1]*cc; dy+=A*s; } out.x=x+dx; out.y=dy; out.z=z+dz; return out; }
 
-  function sampleOcean(x,z,time,out={}){
-    let dx=0,dy=0,dz=0;
-    const ws=oceanParams.waveScale, wind=oceanParams.wind;
-    for(const w of waves){
-      const k=w.freq*ws, c=w.speed*(1+wind*0.2), A=w.amp*ws*(0.6+wind*0.5), Q=w.steep*wind*1.1;
-      const ph=k*(w.dir[0]*x+w.dir[1]*z)-c*time, s=Math.sin(ph), cc=Math.cos(ph);
-      dx+=Q*A*w.dir[0]*cc; dz+=Q*A*w.dir[1]*cc; dy+=A*s;
-    }
-    out.x=x+dx; out.y=dy; out.z=z+dz;
-    return out;
-  }
+  const OCEAN_SIZE=800, OCEAN_RES=140;
+  const oceanGeo=new THREE.PlaneGeometry(OCEAN_SIZE,OCEAN_SIZE,OCEAN_RES,OCEAN_RES); oceanGeo.rotateX(-Math.PI/2);
+  const oceanOrig=oceanGeo.attributes.position.array.slice();
+  const oceanMat=new THREE.MeshPhysicalMaterial({color:0x0a5a7a, roughness:0.2, transparent:true, opacity:0.92, side:THREE.DoubleSide});
+  const oceanMesh=new THREE.Mesh(oceanGeo,oceanMat); scene.add(oceanMesh);
 
-  setProgress(0.42,'海洋 CPU Gerstner（WebGPU 兼容）...');
-
-  const OCEAN_SIZE=800, OCEAN_RES=150;
-  const oceanGeo=new THREE.PlaneGeometry(OCEAN_SIZE,OCEAN_SIZE,OCEAN_RES,OCEAN_RES);
-  oceanGeo.rotateX(-Math.PI/2);
-  const oceanPos=oceanGeo.attributes.position;
-  const oceanOrigPos=oceanPos.array.slice();
-
-  const oceanMat=new THREE.MeshPhysicalMaterial({
-    color:0x0a5a7a,
-    roughness:0.2,
-    metalness:0.1,
-    transparent:true,
-    opacity:0.92,
-    clearcoat:0.6,
-    clearcoatRoughness:0.25,
-    side:THREE.DoubleSide
-  });
-  const oceanMesh=new THREE.Mesh(oceanGeo,oceanMat);
-  oceanMesh.receiveShadow=true;
-  scene.add(oceanMesh);
-
-  setProgress(0.52,'岛屿与植被...');
-
-  const ISLAND_SIZE=260, ISLAND_RES=100;
-  const islandGeo=new THREE.PlaneGeometry(ISLAND_SIZE,ISLAND_SIZE,ISLAND_RES,ISLAND_RES);
-  islandGeo.rotateX(-Math.PI/2);
+  const ISLAND_SIZE=260, ISLAND_RES=80;
+  const islandGeo=new THREE.PlaneGeometry(ISLAND_SIZE,ISLAND_SIZE,ISLAND_RES,ISLAND_RES); islandGeo.rotateX(-Math.PI/2);
   const ipos=islandGeo.attributes.position;
-  const grassSpots=[];
-  for(let i=0;i<ipos.count;i++){
-    const x=ipos.getX(i), z=ipos.getZ(i), r=Math.hypot(x,z);
-    let shape=1-THREE.MathUtils.smoothstep(35,120,r); shape*=THREE.MathUtils.smoothstep(0,15,r+5);
-    shape+=fbm(x*0.02,z*0.02,2)*0.06; shape=THREE.MathUtils.clamp(shape,0,1);
-    let h=Math.pow(shape,0.8)*24 + fbm(x*0.05,z*0.05,3)*3*shape;
-    if(r>110) h=THREE.MathUtils.lerp(h,-2,THREE.MathUtils.smoothstep(110,130,r));
-    ipos.setY(i,h);
-    if(h>0.5&&h<18&&r<110&&Math.random()<0.6) grassSpots.push({x,z,y:h});
-  }
+  for(let i=0;i<ipos.count;i++){ const x=ipos.getX(i), z=ipos.getZ(i), r=Math.hypot(x,z); let shape=1-THREE.MathUtils.smoothstep(35,120,r); shape*=THREE.MathUtils.smoothstep(0,15,r+5); let h=Math.pow(shape,0.8)*24; if(r>110) h=THREE.MathUtils.lerp(h,-2,THREE.MathUtils.smoothstep(110,130,r)); ipos.setY(i,h); }
   islandGeo.computeVertexNormals();
-  const islandMesh=new THREE.Mesh(islandGeo,new THREE.MeshStandardMaterial({color:0x3d6b2a, roughness:0.9}));
-  islandMesh.receiveShadow=true; islandMesh.castShadow=true;
-  scene.add(islandMesh);
+  scene.add(new THREE.Mesh(islandGeo,new THREE.MeshStandardMaterial({color:0x3d6b2a})));
 
-  const GRASS_COUNT=30000;
-  const bladeGeo=new THREE.PlaneGeometry(0.14,1.0,1,2); bladeGeo.translate(0,0.5,0);
-  const gOffsets=[], gScales=[], gRots=[];
-  for(let i=0;i<GRASS_COUNT;i++){
-    const spot=grassSpots[Math.floor(Math.random()*grassSpots.length)];
-    if(!spot){ gOffsets.push(0,0,0); gScales.push(0); gRots.push(0); continue; }
-    gOffsets.push(spot.x+(Math.random()-0.5)*2, spot.y, spot.z+(Math.random()-0.5)*2);
-    gScales.push(0.5+Math.random());
-    gRots.push(Math.random()*Math.PI*2);
-  }
-  const gInstGeo=new THREE.InstancedBufferGeometry();
-  gInstGeo.instanceCount=GRASS_COUNT;
-  gInstGeo.setAttribute('position',bladeGeo.attributes.position);
-  gInstGeo.setAttribute('uv',bladeGeo.attributes.uv);
-  gInstGeo.setIndex(bladeGeo.index);
-  gInstGeo.setAttribute('instanceOffset',new THREE.InstancedBufferAttribute(new Float32Array(gOffsets),3));
-  gInstGeo.setAttribute('instanceScale',new THREE.InstancedBufferAttribute(new Float32Array(gScales),1));
-  gInstGeo.setAttribute('instanceRot',new THREE.InstancedBufferAttribute(new Float32Array(gRots),1));
-  const grassMat=new THREE.MeshStandardMaterial({color:0x2e7a2e, roughness:0.9, side:THREE.DoubleSide});
-  const grassMesh=new THREE.Mesh(gInstGeo,grassMat);
-  scene.add(grassMesh);
+  const controls=new OrbitControls(camera, renderer.domElement); controls.enableDamping=true; controls.target.set(0,5,0);
 
-  const FISH_COUNT=100;
-  const fishGeo=new THREE.ConeGeometry(0.15,0.6,5); fishGeo.rotateX(-Math.PI/2);
-  const fishInst=new THREE.InstancedMesh(fishGeo,new THREE.MeshStandardMaterial({color:0x66ccff}),FISH_COUNT);
-  const fishData=[];
-  for(let i=0;i<FISH_COUNT;i++){
-    const ang=Math.random()*Math.PI*2, rad=30+Math.random()*70;
-    fishData.push({pos:new THREE.Vector3(Math.cos(ang)*rad,-2-Math.random()*10,Math.sin(ang)*rad), vel:new THREE.Vector3((Math.random()-0.5)*1.5,0,(Math.random()-0.5)*1.5)});
-  }
-  scene.add(fishInst);
-  const fishDummy=new THREE.Object3D();
+  setProgress(1,'完成'); setTimeout(()=>{ document.getElementById('loader').style.opacity='0'; setTimeout(()=>document.getElementById('loader').style.display='none',600); },400);
 
-  const JELLY_COUNT=10;
-  const jellies=[];
-  for(let i=0;i<JELLY_COUNT;i++){
-    const col=new THREE.Color().setHSL(0.5+Math.random()*0.4,0.9,0.65);
-    const jelly=new THREE.Mesh(new THREE.SphereGeometry(0.8,16,12,0,Math.PI*2,0,Math.PI*0.6), new THREE.MeshPhysicalMaterial({color:col, emissive:col, emissiveIntensity:0.6, transparent:true, opacity:0.8, transmission:0.5}));
-    const ang=Math.random()*Math.PI*2, rad=15+Math.random()*60;
-    jelly.position.set(Math.cos(ang)*rad,-6-Math.random()*8,Math.sin(ang)*rad);
-    scene.add(jelly);
-    jellies.push({mesh:jelly, vel:new THREE.Vector3((Math.random()-0.5)*0.2,0,(Math.random()-0.5)*0.2), baseY:jelly.position.y, ph:Math.random()*10});
-  }
-
-  setProgress(0.75,'控制器与动画...');
-
-  const controls=new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping=true;
-  controls.target.set(0,5,0);
-
-  let mode='orbit';
-  document.querySelectorAll('[data-mode]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      document.querySelectorAll('[data-mode]').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active'); mode=btn.dataset.mode;
-    });
-  });
-  document.getElementById('tgGrass').addEventListener('click',e=>{ grassMesh.visible=!grassMesh.visible; e.target.classList.toggle('active',grassMesh.visible); });
-  document.getElementById('tgFish').addEventListener('click',e=>{ fishInst.visible=!fishInst.visible; e.target.classList.toggle('active',fishInst.visible); });
-  document.getElementById('tgJelly').addEventListener('click',e=>{ const v=!jellies[0].mesh.visible; jellies.forEach(j=>j.mesh.visible=v); e.target.classList.toggle('active',v); });
-  document.getElementById('tgWire').addEventListener('click',e=>{ const v=!islandMesh.material.wireframe; islandMesh.material.wireframe=v; oceanMat.wireframe=v; e.target.classList.toggle('active',v); });
-
-  setProgress(0.9,'启动渲染循环...');
-
-  let lastTime=performance.now()/1000;
-  const tmp={};
-  const statsEl=document.getElementById('stats');
-
+  let lastTime=performance.now()/1000; const tmp={}; const statsEl=document.getElementById('stats');
   function animate(){
     const now=performance.now()/1000, dt=Math.min(now-lastTime,0.05); lastTime=now; const t=now;
     oceanParams.time=t;
-
     const pos=oceanGeo.attributes.position;
-    for(let i=0;i<pos.count;i++){
-      const ox=oceanOrigPos[i*3], oz=oceanOrigPos[i*3+2];
-      sampleOcean(ox,oz,t,tmp);
-      pos.setXYZ(i, tmp.x, tmp.y, tmp.z);
-    }
-    pos.needsUpdate=true;
-    oceanGeo.computeVertexNormals();
-
-    for(let i=0;i<FISH_COUNT;i++){
-      const f=fishData[i];
-      f.pos.add(f.vel.clone().multiplyScalar(dt));
-      if(f.pos.length()>120) f.vel.add(new THREE.Vector3(-f.pos.x,0,-f.pos.z).normalize().multiplyScalar(0.02));
-      fishDummy.position.copy(f.pos);
-      const dir=f.vel.clone().normalize(); if(dir.length()>0.001){ fishDummy.lookAt(f.pos.clone().add(dir)); fishDummy.rotateX(Math.PI/2); }
-      fishDummy.updateMatrix(); fishInst.setMatrixAt(i,fishDummy.matrix);
-    }
-    fishInst.instanceMatrix.needsUpdate=true;
-
-    for(const j of jellies){
-      j.mesh.position.add(j.vel.clone().multiplyScalar(dt));
-      j.mesh.position.y=j.baseY+Math.sin(t*0.6+j.ph)*1.0;
-    }
-
+    for(let i=0;i<pos.count;i++){ const ox=oceanOrig[i*3], oz=oceanOrig[i*3+2]; sampleOcean(ox,oz,t,tmp); pos.setXYZ(i, tmp.x, tmp.y, tmp.z); }
+    pos.needsUpdate=true; oceanGeo.computeVertexNormals();
     controls.update();
-
-    if(t%0.5<0.02){
-      const isWeb=isWebGPU?'WebGPU':'WebGL2';
-      statsEl.innerHTML=`<b>${isWeb} Ocean</b> · CPU Gerstner · ${renderer.info.render.triangles} tri<br/>相机 ${camera.position.x.toFixed(1)},${camera.position.y.toFixed(1)},${camera.position.z.toFixed(1)}<br/>FPS ${(1/dt).toFixed(0)} · 草${GRASS_COUNT/1000}K 鱼${FISH_COUNT} 水母${JELLY_COUNT}`;
-    }
-
+    if(t%0.5<0.02) statsEl.textContent=`${isWebGPU?'WebGPU':'WebGL2'} · FPS ${(1/dt).toFixed(0)}`;
     renderer.render(scene,camera);
     requestAnimationFrame(animate);
   }
-
-  setProgress(1,'完成');
-  setTimeout(()=>{ document.getElementById('loader').style.opacity='0'; setTimeout(()=>document.getElementById('loader').style.display='none',600); },400);
-
   animate();
-
   addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
 
-}catch(e){
-  setError('启动失败: '+e.message+'\n'+(e.stack||''));
-}
+}catch(e){ setError('启动失败: '+e.message); }
 })();
 </script>
 </body>
