@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OceanUnderwater 2.0 Full — 修复版</title>
+<title>OceanUnderwater 2.0 Full — 无 top-level await 修复版</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#00101a;font-family:system-ui}
@@ -46,15 +46,14 @@ setTimeout(function(){ if(!window.__modOK){ var e=document.getElementById('perro
 <body>
 <div id="webgpu">检测...</div>
 <div id="loader">
-  <h2 style="color:#dff8ff">OceanUnderwater 2.0</h2>
-  <p style="color:rgba(180,220,255,0.6);font-size:12px;max-width:460px;text-align:center">50K草+棕榈+海带+岩石花海+帆船尾迹+鸟鱼水母+焦散+Bloom — 修复版<br/>RealIsland / Grass Meadow / Jelly Garden</p>
+  <h2 style="color:#dff8ff">OceanUnderwater 2.0 修复版</h2>
+  <p style="color:rgba(180,220,255,0.6);font-size:12px;max-width:460px;text-align:center">无 top-level await · 本地→CDN 回退 · 修复初始化卡死</p>
   <div class="progress"><div class="progress-bar" id="pbar"></div></div>
   <p id="pstatus" style="font-size:11px;color:rgba(180,220,255,0.7)">初始化...</p>
   <p id="perror"></p>
   <div style="display:flex;gap:8px;margin-top:8px">
-    <a href="/index.html" style="font-size:11px;color:#7fffd4;text-decoration:none;border:1px solid rgba(0,255,180,0.3);padding:4px 10px;border-radius:99px">主版 2.3</a>
+    <a href="/index.html" style="font-size:11px;color:#7fffd4;text-decoration:none;border:1px solid rgba(0,255,180,0.3);padding:4px 10px;border-radius:99px">主版 2.4</a>
     <a href="/webgpu.html" style="font-size:11px;color:#8dcfff;text-decoration:none;border:1px solid rgba(100,180,255,0.3);padding:4px 10px;border-radius:99px">WebGPU版</a>
-    <a href="/local.html" style="font-size:11px;color:#ffd166;text-decoration:none;border:1px solid rgba(255,209,102,0.3);padding:4px 10px;border-radius:99px">file://兼容版</a>
   </div>
 </div>
 <canvas id="canvas"></canvas>
@@ -62,7 +61,7 @@ setTimeout(function(){ if(!window.__modOK){ var e=document.getElementById('perro
 <div id="ui">
   <div class="top">
     <div class="card">
-      <h1>🌊 OceanUnderwater <span class="badge">WEBGL2 修复版</span></h1>
+      <h1>🌊 OceanUnderwater <span class="badge">2.0 修复版</span></h1>
       <div class="row">
         <button class="btn active" data-mode="orbit">环绕</button>
         <button class="btn" data-mode="boat">帆船 ⛵</button>
@@ -72,7 +71,6 @@ setTimeout(function(){ if(!window.__modOK){ var e=document.getElementById('perro
       </div>
       <div class="slider"><span>风</span><input id="wind" type="range" min="0" max="2" step="0.01" value="0.85"><span id="windV">0.85</span></div>
       <div class="slider"><span>浪</span><input id="wave" type="range" min="0" max="2" step="0.01" value="1.0"><span id="waveV">1.0</span></div>
-      <div class="slider"><span>时间</span><input id="time" type="range" min="0" max="1" step="0.001" value="0.35"><span id="timeV">晨</span></div>
     </div>
     <div class="card">
       <div class="row"><button class="btn active" id="tgGrass">草</button><button class="btn active" id="tgPalm">棕榈</button><button class="btn active" id="tgKelp">海带</button><button class="btn active" id="tgFlowers">花</button></div>
@@ -93,32 +91,34 @@ window.addEventListener('unhandledrejection', e=>{ setError('Promise: '+(e.reaso
 
 setProgress(0.05,'加载 three.js...');
 
-async function loadThree(){
-  try{
-    const res=await fetch('./node_modules/three/build/three.module.js', {method:'HEAD'}).catch(()=>null);
-    if(res && res.ok){
-      const mod=await import('three');
-      return {THREE:mod, base:'three/addons/'};
+function loadThree(){
+  return new Promise(async (resolve,reject)=>{
+    try{
+      const res=await fetch('./node_modules/three/build/three.module.js', {method:'HEAD'}).catch(()=>null);
+      if(res && res.ok){
+        const mod=await import('three');
+        resolve({THREE:mod, base:'three/addons/'});
+        return;
+      }
+      throw new Error('local fail');
+    }catch(e){
+      console.warn('local fail CDN', e);
+      setProgress(0.08,'本地失败，尝试 CDN...');
+      try{
+        const mod=await import('three-cdn');
+        resolve({THREE:mod, base:'three-cdn-addons/'});
+      }catch(e2){ setError('three 加载失败: '+e2.message); reject(e2); }
     }
-    throw new Error('local fail');
-  }catch(e){
-    console.warn('local fail, CDN', e);
-    setProgress(0.08,'本地失败，尝试 CDN...');
-    const mod=await import('three-cdn');
-    return {THREE:mod, base:'three-cdn-addons/'};
-  }
+  });
 }
 
-let THREE, addonBase;
+(async ()=>{
 try{
   const loaded=await loadThree();
-  THREE=loaded.THREE;
-  addonBase=loaded.base;
+  const THREE=loaded.THREE;
+  const addonBase=loaded.base;
   setProgress(0.12,'three.js 加载成功');
-}catch(e){ setError('three 加载失败: '+e.message); throw e; }
 
-let OrbitControls, ImprovedNoise, EffectComposer, RenderPass, UnrealBloomPass, OutputPass;
-try{
   const [oc, noiseMod, compMod, rpMod, bloomMod, outMod] = await Promise.all([
     import(addonBase+'controls/OrbitControls.js'),
     import(addonBase+'math/ImprovedNoise.js'),
@@ -127,28 +127,25 @@ try{
     import(addonBase+'postprocessing/UnrealBloomPass.js'),
     import(addonBase+'postprocessing/OutputPass.js'),
   ]);
-  OrbitControls=oc.OrbitControls;
-  ImprovedNoise=noiseMod.ImprovedNoise;
-  EffectComposer=compMod.EffectComposer;
-  RenderPass=rpMod.RenderPass;
-  UnrealBloomPass=bloomMod.UnrealBloomPass;
-  OutputPass=outMod.OutputPass;
-  setProgress(0.18,'扩展加载成功');
-}catch(e){ setError('扩展加载失败: '+e.message); throw e; }
+  const OrbitControls=oc.OrbitControls;
+  const ImprovedNoise=noiseMod.ImprovedNoise;
+  const EffectComposer=compMod.EffectComposer;
+  const RenderPass=rpMod.RenderPass;
+  const UnrealBloomPass=bloomMod.UnrealBloomPass;
+  const OutputPass=outMod.OutputPass;
 
-setProgress(0.2,'初始化渲染器...');
+  setProgress(0.18,'初始化渲染器...');
 
-const canvas=document.getElementById('canvas');
-const scene=new THREE.Scene();
-scene.fog=new THREE.FogExp2(0x7fb8d8,0.0012);
-scene.background=new THREE.Color(0x0a1f33);
-const camera=new THREE.PerspectiveCamera(65, innerWidth/innerHeight, 0.1, 3000);
-camera.position.set(38,20,58);
+  const canvas=document.getElementById('canvas');
+  const scene=new THREE.Scene();
+  scene.fog=new THREE.FogExp2(0x7fb8d8,0.0012);
+  scene.background=new THREE.Color(0x0a1f33);
+  const camera=new THREE.PerspectiveCamera(65, innerWidth/innerHeight, 0.1, 3000);
+  camera.position.set(38,20,58);
 
-let renderer, composer, bloomPass;
-const badge=document.getElementById('webgpu');
+  let renderer, composer, bloomPass;
+  const badge=document.getElementById('webgpu');
 
-try{
   renderer=new THREE.WebGLRenderer({canvas, antialias:true, powerPreference:'high-performance'});
   renderer.shadowMap.enabled=true;
   renderer.shadowMap.type=THREE.PCFSoftShadowMap;
@@ -165,59 +162,49 @@ try{
   bloomPass=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight), 0.35, 0.6, 0.85);
   composer.addPass(bloomPass);
   composer.addPass(new OutputPass());
-}catch(e){
-  setError('渲染器初始化失败: '+e.message);
-  throw e;
-}
 
-setProgress(0.28,'光照...');
+  setProgress(0.25,'光照与海洋...');
 
-const sunPos=new THREE.Vector3(300,400,100);
-const sunLight=new THREE.DirectionalLight(0xfff6e0,2.6);
-sunLight.position.copy(sunPos);
-sunLight.castShadow=true;
-sunLight.shadow.mapSize.set(2048,2048);
-sunLight.shadow.camera.left=-200; sunLight.shadow.camera.right=200; sunLight.shadow.camera.top=200; sunLight.shadow.camera.bottom=-200;
-scene.add(sunLight);
-scene.add(new THREE.HemisphereLight(0x8ecbff,0x0a2a44,0.6));
-scene.add(new THREE.AmbientLight(0x405060,0.35));
+  const sunPos=new THREE.Vector3(300,400,100);
+  const sunLight=new THREE.DirectionalLight(0xfff6e0,2.6);
+  sunLight.position.copy(sunPos);
+  sunLight.castShadow=true;
+  sunLight.shadow.mapSize.set(2048,2048);
+  scene.add(sunLight);
+  scene.add(new THREE.HemisphereLight(0x8ecbff,0x0a2a44,0.6));
+  scene.add(new THREE.AmbientLight(0x405060,0.35));
 
-const noise=new ImprovedNoise();
-const seed=Math.random()*100;
-function fbm(x,y,oct=4){ let v=0,a=0.5,f=1,max=0; for(let i=0;i<oct;i++){ v+=noise.noise(x*f+seed,y*f,0)*a; max+=a; a*=0.5; f*=2; } return v/max; }
+  const noise=new ImprovedNoise();
+  const seed=Math.random()*100;
+  function fbm(x,y,oct=4){ let v=0,a=0.5,f=1,max=0; for(let i=0;i<oct;i++){ v+=noise.noise(x*f+seed,y*f,0)*a; max+=a; a*=0.5; f*=2; } return v/max; }
 
-const oceanParams={time:0, wind:0.85, waveScale:1.0, waveChop:1.2};
-const waves=[
-  {dir:[1,0.3], amp:1.8, freq:0.09, speed:1.4, steep:0.18},
-  {dir:[-0.7,0.8], amp:1.2, freq:0.13, speed:1.1, steep:0.15},
-  {dir:[0.2,-1], amp:0.8, freq:0.18, speed:0.9, steep:0.12},
-  {dir:[0.9,0.6], amp:0.5, freq:0.25, speed:1.2, steep:0.1},
-];
-const norm2=v=>{ const l=Math.hypot(v[0],v[1])||1; return [v[0]/l,v[1]/l]; };
-waves.forEach(w=>w.dir=norm2(w.dir));
-function sampleOcean(x,z,time,out={}){
-  let dx=0,dy=0,dz=0,ddx=0,ddz=0,dxz=0,dzx=0,dYdx=0,dYdz=0;
-  const ws=oceanParams.waveScale, chop=oceanParams.wind*oceanParams.waveChop;
-  for(const w of waves){
-    const k=w.freq*ws, c=w.speed*(1+oceanParams.wind*0.2), A=w.amp*ws*(0.6+oceanParams.wind*0.5);
-    const ph=k*(w.dir[0]*x+w.dir[1]*z)-c*time, s=Math.sin(ph), cc=Math.cos(ph), Q=w.steep*chop;
-    dx+=Q*A*w.dir[0]*cc; dz+=Q*A*w.dir[1]*cc; dy+=A*s;
-    ddx+=-Q*A*w.dir[0]*w.dir[0]*k*s; ddz+=-Q*A*w.dir[1]*w.dir[1]*k*s;
-    const cr=-Q*A*w.dir[0]*w.dir[1]*k*s; dxz+=cr; dzx+=cr;
-    dYdx+=k*A*w.dir[0]*cc; dYdz+=k*A*w.dir[1]*cc;
+  const oceanParams={time:0, wind:0.85, waveScale:1.0, waveChop:1.2};
+  const waves=[
+    {dir:[1,0.3], amp:1.8, freq:0.09, speed:1.4, steep:0.18},
+    {dir:[-0.7,0.8], amp:1.2, freq:0.13, speed:1.1, steep:0.15},
+    {dir:[0.2,-1], amp:0.8, freq:0.18, speed:0.9, steep:0.12},
+    {dir:[0.9,0.6], amp:0.5, freq:0.25, speed:1.2, steep:0.1},
+  ];
+  const norm2=v=>{ const l=Math.hypot(v[0],v[1])||1; return [v[0]/l,v[1]/l]; };
+  waves.forEach(w=>w.dir=norm2(w.dir));
+  function sampleOcean(x,z,time,out={}){
+    let dx=0,dy=0,dz=0,dYdx=0,dYdz=0;
+    const ws=oceanParams.waveScale, chop=oceanParams.wind*oceanParams.waveChop;
+    for(const w of waves){
+      const k=w.freq*ws, c=w.speed*(1+oceanParams.wind*0.2), A=w.amp*ws*(0.6+oceanParams.wind*0.5);
+      const ph=k*(w.dir[0]*x+w.dir[1]*z)-c*time, s=Math.sin(ph), cc=Math.cos(ph), Q=w.steep*chop;
+      dx+=Q*A*w.dir[0]*cc; dz+=Q*A*w.dir[1]*cc; dy+=A*s;
+      dYdx+=k*A*w.dir[0]*cc; dYdz+=k*A*w.dir[1]*cc;
+    }
+    out.x=x+dx; out.y=dy; out.z=z+dz;
+    const nx=-dYdx, ny=1, nz=-dYdz, len=Math.hypot(nx,ny,nz);
+    out.nx=nx/len; out.ny=ny/len; out.nz=nz/len;
+    return out;
   }
-  out.x=x+dx; out.y=dy; out.z=z+dz;
-  const nx=-dYdx, ny=1, nz=-dYdz, len=Math.hypot(nx,ny,nz);
-  out.nx=nx/len; out.ny=ny/len; out.nz=nz/len;
-  const J=(1+ddx)*(1+ddz)-dxz*dzx; out.foam=Math.max(0,1-J);
-  return out;
-}
 
-setProgress(0.35,'海洋...');
-
-const OCEAN_SIZE=800, OCEAN_RES=180;
-const oceanGeo=new THREE.PlaneGeometry(OCEAN_SIZE,OCEAN_SIZE,OCEAN_RES,OCEAN_RES); oceanGeo.rotateX(-Math.PI/2);
-const oceanVert=`
+  const OCEAN_SIZE=800, OCEAN_RES=150;
+  const oceanGeo=new THREE.PlaneGeometry(OCEAN_SIZE,OCEAN_SIZE,OCEAN_RES,OCEAN_RES); oceanGeo.rotateX(-Math.PI/2);
+  const oceanVert=`
 uniform float uTime; uniform float uWind; uniform float uWaveScale;
 varying vec3 vWorldPos; varying vec3 vNormalW; varying vec3 vViewDir; varying float vFoam; varying float vHeight;
 void main(){
@@ -230,7 +217,7 @@ void main(){
   vec3 n=normalize(vec3(-dYdx,1.0,-dYdz)); vNormalW=normalize(mat3(modelMatrix)*n); vViewDir=normalize(cameraPosition-vWorldPos);
   gl_Position=projectionMatrix*viewMatrix*vec4(vWorldPos,1.0);
 }`;
-const oceanFrag=`
+  const oceanFrag=`
 uniform vec3 uSunDir; uniform vec3 uSunColor;
 varying vec3 vWorldPos; varying vec3 vNormalW; varying vec3 vViewDir; varying float vFoam; varying float vHeight;
 void main(){
@@ -246,184 +233,188 @@ void main(){
   col=mix(col, vec3(0.35,0.65,0.92), F*0.35);
   gl_FragColor=vec4(col,1.0);
 }`;
-const oceanUniforms={uTime:{value:0},uWind:{value:oceanParams.wind},uWaveScale:{value:oceanParams.waveScale},uSunDir:{value:sunPos.clone().normalize()},uSunColor:{value:new THREE.Color(0xfff0d0)}};
-const oceanMat=new THREE.ShaderMaterial({vertexShader:oceanVert,fragmentShader:oceanFrag,uniforms:oceanUniforms});
-const oceanMesh=new THREE.Mesh(oceanGeo,oceanMat); oceanMesh.receiveShadow=true; scene.add(oceanMesh);
+  const oceanUniforms={uTime:{value:0},uWind:{value:oceanParams.wind},uWaveScale:{value:oceanParams.waveScale},uSunDir:{value:sunPos.clone().normalize()},uSunColor:{value:new THREE.Color(0xfff0d0)}};
+  const oceanMat=new THREE.ShaderMaterial({vertexShader:oceanVert,fragmentShader:oceanFrag,uniforms:oceanUniforms});
+  const oceanMesh=new THREE.Mesh(oceanGeo,oceanMat); oceanMesh.receiveShadow=true; scene.add(oceanMesh);
 
-setProgress(0.45,'岛屿...');
+  setProgress(0.4,'岛屿与植被...');
 
-const ISLAND_SIZE=260, ISLAND_RES=100;
-const islandGeo=new THREE.PlaneGeometry(ISLAND_SIZE,ISLAND_SIZE,ISLAND_RES,ISLAND_RES); islandGeo.rotateX(-Math.PI/2);
-const ipos=islandGeo.attributes.position;
-const icolors=[]; const grassSpots=[];
-for(let i=0;i<ipos.count;i++){
-  const x=ipos.getX(i), z=ipos.getZ(i), r=Math.hypot(x,z);
-  let shape=1-THREE.MathUtils.smoothstep(40,130,r); shape*=THREE.MathUtils.smoothstep(0,20,r+5);
-  shape+=fbm(x*0.02,z*0.02,3)*0.06; shape=THREE.MathUtils.clamp(shape,0,1);
-  let h=Math.pow(shape,0.8)*28 + (Math.sin(x*0.03)*Math.cos(z*0.03)*0.5+0.5)*shape*6 + fbm(x*0.05,z*0.05,4)*4*shape;
-  const beach=THREE.MathUtils.smoothstep(70,110,r); if(beach<1) h*=(0.1+beach*0.9);
-  if(r>115) h=THREE.MathUtils.lerp(h,-1.5,THREE.MathUtils.smoothstep(115,135,r));
-  ipos.setY(i,h);
-  let col; if(h<0.2) col=new THREE.Color(0xc9b896); else if(h<2.5) col=new THREE.Color(0x6a8a3a); else if(h<12) col=new THREE.Color(0x3d6b2a); else col=new THREE.Color(0x7a7a6a);
-  col.offsetHSL(fbm(x*0.1,z*0.1,2)*0.05,0,0);
-  icolors.push(col.r,col.g,col.b);
-  if(h>0.5&&h<18&&r<115&&Math.random()<0.6) grassSpots.push({x,z,y:h});
-}
-islandGeo.setAttribute('color',new THREE.Float32BufferAttribute(icolors,3)); islandGeo.computeVertexNormals();
-const islandMesh=new THREE.Mesh(islandGeo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.9})); islandMesh.receiveShadow=true; islandMesh.castShadow=true; scene.add(islandMesh);
-
-setProgress(0.55,'植被...');
-
-const rockBase=new THREE.IcosahedronGeometry(1,1);
-const ROCK_COUNT=160; const rockInst=new THREE.InstancedMesh(rockBase,new THREE.MeshStandardMaterial({color:0x6b6d68,roughness:0.95}),ROCK_COUNT);
-const dummy=new THREE.Object3D(); let rIdx=0;
-for(let i=0;i<ROCK_COUNT;i++){
-  const ang=Math.random()*Math.PI*2, rad=30+Math.random()*80;
-  const x=Math.cos(ang)*rad, z=Math.sin(ang)*rad, r=Math.hypot(x,z);
-  let y=r<120?Math.max(0,(1-THREE.MathUtils.smoothstep(40,130,r))*18):-2-Math.random()*8;
-  if(y>20&&Math.random()<0.7) continue;
-  const s=0.4+Math.random()*1.2; dummy.position.set(x,y-s*0.3,z); dummy.rotation.set(Math.random()*Math.PI,Math.random()*Math.PI,Math.random()*Math.PI); dummy.scale.set(s,s*0.8,s); dummy.updateMatrix(); rockInst.setMatrixAt(rIdx++,dummy.matrix);
-}
-rockInst.instanceMatrix.needsUpdate=true; rockInst.castShadow=true; scene.add(rockInst);
-
-const GRASS_COUNT=15000;
-const bladeGeo=new THREE.PlaneGeometry(0.12,1,1,2); bladeGeo.translate(0,0.5,0);
-const gOffsets=[], gScales=[], gRots=[], gColors=[];
-for(let i=0;i<GRASS_COUNT;i++){
-  const spot=grassSpots[Math.floor(Math.random()*grassSpots.length)];
-  if(!spot){ gOffsets.push(0,0,0); gScales.push(0); gRots.push(0); gColors.push(0,0,0); continue; }
-  gOffsets.push(spot.x+(Math.random()-0.5)*3, spot.y, spot.z+(Math.random()-0.5)*3);
-  gScales.push(0.5+Math.random()*1.0); gRots.push(Math.random()*Math.PI*2);
-  const c=new THREE.Color().setHSL(0.28+Math.random()*0.1,0.6,0.3); gColors.push(c.r,c.g,c.b);
-}
-const gInstGeo=new THREE.InstancedBufferGeometry(); gInstGeo.instanceCount=GRASS_COUNT;
-gInstGeo.setAttribute('position',bladeGeo.attributes.position); gInstGeo.setAttribute('uv',bladeGeo.attributes.uv); gInstGeo.setIndex(bladeGeo.index);
-gInstGeo.setAttribute('instanceOffset',new THREE.InstancedBufferAttribute(new Float32Array(gOffsets),3));
-gInstGeo.setAttribute('instanceScale',new THREE.InstancedBufferAttribute(new Float32Array(gScales),1));
-gInstGeo.setAttribute('instanceRot',new THREE.InstancedBufferAttribute(new Float32Array(gRots),1));
-gInstGeo.setAttribute('instanceColor',new THREE.InstancedBufferAttribute(new Float32Array(gColors),3));
-const gUniforms={uTime:{value:0},uWindDir:{value:new THREE.Vector3(1,0,0.4)},uWindStrength:{value:0.85}};
-const gMat=new THREE.ShaderMaterial({
-  vertexShader:`uniform float uTime; uniform vec3 uWindDir; uniform float uWindStrength; attribute vec3 instanceOffset; attribute float instanceScale; attribute float instanceRot; attribute vec3 instanceColor; varying vec3 vColor; void main(){ vColor=instanceColor; vec3 pos=position; pos.y*=instanceScale; float hf=pow(pos.y/max(instanceScale,0.001),2.0); pos.x+=uWindDir.x*uWindStrength*hf*0.6; float c=cos(instanceRot), s=sin(instanceRot); vec3 rot=vec3(pos.x*c-pos.z*s,pos.y,pos.x*s+pos.z*c); vec3 wp=rot+instanceOffset; gl_Position=projectionMatrix*viewMatrix*modelMatrix*vec4(wp,1.0); }`,
-  fragmentShader:`varying vec3 vColor; void main(){ gl_FragColor=vec4(vColor,1.0); }`,
-  uniforms:gUniforms, side:THREE.DoubleSide
-});
-const grassMesh=new THREE.Mesh(gInstGeo,gMat); scene.add(grassMesh);
-
-setProgress(0.65,'生物...');
-
-function createBoat(){
-  const g=new THREE.Group();
-  const hullGeo=new THREE.BoxGeometry(4,1.2,10,2,1,4);
-  const hull=new THREE.Mesh(hullGeo,new THREE.MeshStandardMaterial({color:0x8b5a2b})); hull.castShadow=true; g.add(hull);
-  const mast=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.09,8,8),new THREE.MeshStandardMaterial({color:0x4a3020})); mast.position.set(0,4.5,0.5); g.add(mast);
-  const sail=new THREE.Mesh(new THREE.PlaneGeometry(3.2,5),new THREE.MeshStandardMaterial({color:0xfffaf0,side:THREE.DoubleSide})); sail.position.set(0,4,0.6); g.add(sail);
-  return g;
-}
-const boat=createBoat(); boat.position.set(80,0,30); scene.add(boat); let boatVel=new THREE.Vector3(0.2,0,0.1);
-
-const BIRD_COUNT=30; const birds=[]; for(let i=0;i<BIRD_COUNT;i++) birds.push({pos:new THREE.Vector3((Math.random()-0.5)*280,20+Math.random()*30,(Math.random()-0.5)*280), vel:new THREE.Vector3((Math.random()-0.5)*4,0,(Math.random()-0.5)*4)});
-const birdGeo=new THREE.BufferGeometry(); birdGeo.setAttribute('position',new THREE.Float32BufferAttribute([0,0,0.3,-0.1,0,-0.2,0.1,0,-0.2, 0,0,0,-0.5,0,0.1,-0.1,0,-0.1, 0,0,0,0.1,0,-0.1,0.5,0,0.1],3)); birdGeo.computeVertexNormals();
-const birdInst=new THREE.InstancedMesh(birdGeo,new THREE.MeshStandardMaterial({color:0xffffff}),BIRD_COUNT); scene.add(birdInst); const birdDummy=new THREE.Object3D();
-
-const FISH_COUNT=60; const fishes=[]; for(let i=0;i<FISH_COUNT;i++){ const ang=Math.random()*Math.PI*2, rad=30+Math.random()*70; fishes.push({pos:new THREE.Vector3(Math.cos(ang)*rad,-2-Math.random()*10,Math.sin(ang)*rad), vel:new THREE.Vector3((Math.random()-0.5)*2,0,(Math.random()-0.5)*2), color:new THREE.Color().setHSL(0.55+Math.random()*0.1,0.7,0.6)}); }
-const fishGeo=new THREE.ConeGeometry(0.15,0.7,5); fishGeo.rotateX(-Math.PI/2); const fishInst=new THREE.InstancedMesh(fishGeo,new THREE.MeshStandardMaterial({color:0xffffff}),FISH_COUNT); scene.add(fishInst); const fishDummy=new THREE.Object3D();
-
-const JELLY_COUNT=8; const jellies=[];
-function createJelly(col){
-  const group=new THREE.Group();
-  const bellGeo=new THREE.SphereGeometry(0.8,16,12,0,Math.PI*2,0,Math.PI*0.6);
-  const bellMat=new THREE.MeshStandardMaterial({color:col, emissive:col, emissiveIntensity:0.6, transparent:true, opacity:0.85});
-  const bell=new THREE.Mesh(bellGeo,bellMat); group.add(bell);
-  return group;
-}
-for(let i=0;i<JELLY_COUNT;i++){
-  const col=new THREE.Color().setHSL(0.5+Math.random()*0.4,0.9,0.65);
-  const jelly=createJelly(col); const ang=Math.random()*Math.PI*2, rad=20+Math.random()*60; jelly.position.set(Math.cos(ang)*rad,-6-Math.random()*10,Math.sin(ang)*rad); scene.add(jelly); jellies.push({mesh:jelly, vel:new THREE.Vector3((Math.random()-0.5)*0.2,0,(Math.random()-0.5)*0.2), baseY:jelly.position.y, ph:Math.random()*10});
-}
-
-const skyGeo=new THREE.SphereGeometry(1500,16,16); const skyMat=new THREE.MeshBasicMaterial({color:0x6fb8e8, side:THREE.BackSide}); scene.add(new THREE.Mesh(skyGeo,skyMat));
-
-const controls=new OrbitControls(camera, renderer.domElement);
-controls.enableDamping=true; controls.target.set(0,5,0);
-
-setProgress(0.9,'启动...');
-
-let mode='orbit';
-document.querySelectorAll('[data-mode]').forEach(btn=>{ btn.addEventListener('click',()=>{ document.querySelectorAll('[data-mode]').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); mode=btn.dataset.mode; if(mode==='boat') controls.target.copy(boat.position); else if(mode==='dive'){ camera.position.set(10,-6,15); controls.target.set(0,-8,0); } else if(mode==='bird'){ camera.position.set(0,100,0); controls.target.set(0,0,0); } else if(mode==='jelly'){ camera.position.set(0,-8,15); controls.target.set(0,-8,0); } }); });
-
-function bindToggle(id, mesh){ const el=document.getElementById(id); if(!el) return; el.addEventListener('click',()=>{ const v=!mesh.visible; mesh.visible=v; el.classList.toggle('active',v); }); }
-bindToggle('tgGrass',grassMesh); bindToggle('tgRocks',rockInst); bindToggle('tgBirds',birdInst); bindToggle('tgFish',fishInst);
-document.getElementById('tgJelly').addEventListener('click',e=>{ const v=!jellies[0].mesh.visible; jellies.forEach(j=>j.mesh.visible=v); e.target.classList.toggle('active',v); });
-document.getElementById('tgBoat').addEventListener('click',e=>{ boat.visible=!boat.visible; e.target.classList.toggle('active',boat.visible); });
-document.getElementById('tgWire').addEventListener('click',e=>{ const v=!islandMesh.material.wireframe; islandMesh.material.wireframe=v; oceanMat.wireframe=v; e.target.classList.toggle('active',v); });
-document.getElementById('shot').addEventListener('click',()=>{ renderer.domElement.toBlob(b=>{ const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download='ocean.png'; a.click(); }); });
-
-const windSlider=document.getElementById('wind'), waveSlider=document.getElementById('wave');
-windSlider.addEventListener('input',e=>{ oceanParams.wind=parseFloat(e.target.value); document.getElementById('windV').textContent=oceanParams.wind.toFixed(2); });
-waveSlider.addEventListener('input',e=>{ oceanParams.waveScale=parseFloat(e.target.value); document.getElementById('waveV').textContent=oceanParams.waveScale.toFixed(2); });
-
-let lastTime=performance.now()/1000;
-const tmp={}; const statsEl=document.getElementById('stats');
-const miniCanvas=document.getElementById('miniCanvas'), miniCtx=miniCanvas.getContext('2d');
-
-function animate(){
-  const now=performance.now()/1000, dt=Math.min(now-lastTime,0.05); lastTime=now; const t=now;
-  oceanParams.time=t; oceanUniforms.uTime.value=t; oceanUniforms.uWind.value=oceanParams.wind; oceanUniforms.uWaveScale.value=oceanParams.waveScale; gUniforms.uTime.value=t;
-
-  sampleOcean(boat.position.x,boat.position.z,t,tmp); boat.position.y=tmp.y+0.6;
-  boat.position.add(boatVel.clone().multiplyScalar(dt));
-  boatVel.clampLength(0,1.2);
-  if(boat.position.length()>250) boatVel.add(new THREE.Vector3().copy(boat.position).negate().normalize().multiplyScalar(0.02));
-
-  for(let i=0;i<BIRD_COUNT;i++){
-    const b=birds[i];
-    b.pos.add(b.vel.clone().multiplyScalar(dt));
-    if(b.pos.length()>300) b.vel.add(new THREE.Vector3().copy(b.pos).negate().normalize().multiplyScalar(0.05));
-    birdDummy.position.copy(b.pos);
-    const dir=b.vel.clone().normalize(); if(dir.length()>0.001){ birdDummy.lookAt(b.pos.clone().add(dir)); birdDummy.rotateX(-Math.PI/2); }
-    birdDummy.updateMatrix(); birdInst.setMatrixAt(i,birdDummy.matrix);
+  const ISLAND_SIZE=260, ISLAND_RES=100;
+  const islandGeo=new THREE.PlaneGeometry(ISLAND_SIZE,ISLAND_SIZE,ISLAND_RES,ISLAND_RES); islandGeo.rotateX(-Math.PI/2);
+  const ipos=islandGeo.attributes.position;
+  const icolors=[]; const grassSpots=[];
+  for(let i=0;i<ipos.count;i++){
+    const x=ipos.getX(i), z=ipos.getZ(i), r=Math.hypot(x,z);
+    let shape=1-THREE.MathUtils.smoothstep(40,130,r); shape*=THREE.MathUtils.smoothstep(0,20,r+5);
+    shape+=fbm(x*0.02,z*0.02,3)*0.06; shape=THREE.MathUtils.clamp(shape,0,1);
+    let h=Math.pow(shape,0.8)*28 + (Math.sin(x*0.03)*Math.cos(z*0.03)*0.5+0.5)*shape*6 + fbm(x*0.05,z*0.05,4)*4*shape;
+    const beach=THREE.MathUtils.smoothstep(70,110,r); if(beach<1) h*=(0.1+beach*0.9);
+    if(r>115) h=THREE.MathUtils.lerp(h,-1.5,THREE.MathUtils.smoothstep(115,135,r));
+    ipos.setY(i,h);
+    let col; if(h<0.2) col=new THREE.Color(0xc9b896); else if(h<2.5) col=new THREE.Color(0x6a8a3a); else if(h<12) col=new THREE.Color(0x3d6b2a); else col=new THREE.Color(0x7a7a6a);
+    col.offsetHSL(fbm(x*0.1,z*0.1,2)*0.05,0,0);
+    icolors.push(col.r,col.g,col.b);
+    if(h>0.5&&h<18&&r<115&&Math.random()<0.6) grassSpots.push({x,z,y:h});
   }
-  birdInst.instanceMatrix.needsUpdate=true;
+  islandGeo.setAttribute('color',new THREE.Float32BufferAttribute(icolors,3)); islandGeo.computeVertexNormals();
+  const islandMesh=new THREE.Mesh(islandGeo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.9})); islandMesh.receiveShadow=true; islandMesh.castShadow=true; scene.add(islandMesh);
 
-  for(let i=0;i<FISH_COUNT;i++){
-    const f=fishes[i];
-    f.pos.add(f.vel.clone().multiplyScalar(dt));
-    if(f.pos.length()>150) f.vel.add(new THREE.Vector3(-f.pos.x,0,-f.pos.z).normalize().multiplyScalar(0.02));
-    if(f.pos.y>-1) f.vel.y-=0.02;
-    if(f.pos.y<-18) f.vel.y+=0.02;
-    fishDummy.position.copy(f.pos); const dir=f.vel.clone().normalize(); if(dir.length()>0.001){ fishDummy.lookAt(f.pos.clone().add(dir)); fishDummy.rotateX(Math.PI/2); } fishDummy.updateMatrix(); fishInst.setMatrixAt(i,fishDummy.matrix); fishInst.setColorAt(i,f.color);
+  const rockBase=new THREE.IcosahedronGeometry(1,1);
+  const ROCK_COUNT=150; const rockInst=new THREE.InstancedMesh(rockBase,new THREE.MeshStandardMaterial({color:0x6b6d68,roughness:0.95}),ROCK_COUNT);
+  const dummy=new THREE.Object3D(); let rIdx=0;
+  for(let i=0;i<ROCK_COUNT;i++){
+    const ang=Math.random()*Math.PI*2, rad=30+Math.random()*80;
+    const x=Math.cos(ang)*rad, z=Math.sin(ang)*rad, r=Math.hypot(x,z);
+    let y=r<120?Math.max(0,(1-THREE.MathUtils.smoothstep(40,130,r))*18):-2-Math.random()*8;
+    if(y>20&&Math.random()<0.7) continue;
+    const s=0.4+Math.random()*1.2; dummy.position.set(x,y-s*0.3,z); dummy.rotation.set(Math.random()*Math.PI,Math.random()*Math.PI,Math.random()*Math.PI); dummy.scale.set(s,s*0.8,s); dummy.updateMatrix(); rockInst.setMatrixAt(rIdx++,dummy.matrix);
   }
-  fishInst.instanceMatrix.needsUpdate=true; if(fishInst.instanceColor) fishInst.instanceColor.needsUpdate=true;
+  rockInst.instanceMatrix.needsUpdate=true; rockInst.castShadow=true; scene.add(rockInst);
 
-  for(const j of jellies){
-    j.mesh.position.add(j.vel.clone().multiplyScalar(dt));
-    j.mesh.position.y=j.baseY+Math.sin(t*0.6+j.ph)*1.2;
-    if(Math.hypot(j.mesh.position.x,j.mesh.position.z)>140) j.vel.add(new THREE.Vector3(-j.mesh.position.x,0,-j.mesh.position.z).normalize().multiplyScalar(0.005));
-    if(j.mesh.position.y>-2) j.vel.y-=0.01;
-    if(j.mesh.position.y<-20) j.vel.y+=0.01;
+  const GRASS_COUNT=12000;
+  const bladeGeo=new THREE.PlaneGeometry(0.12,1,1,2); bladeGeo.translate(0,0.5,0);
+  const gOffsets=[], gScales=[], gRots=[], gColors=[];
+  for(let i=0;i<GRASS_COUNT;i++){
+    const spot=grassSpots[Math.floor(Math.random()*grassSpots.length)];
+    if(!spot){ gOffsets.push(0,0,0); gScales.push(0); gRots.push(0); gColors.push(0,0,0); continue; }
+    gOffsets.push(spot.x+(Math.random()-0.5)*3, spot.y, spot.z+(Math.random()-0.5)*3);
+    gScales.push(0.5+Math.random()*1.0); gRots.push(Math.random()*Math.PI*2);
+    const c=new THREE.Color().setHSL(0.28+Math.random()*0.1,0.6,0.3); gColors.push(c.r,c.g,c.b);
+  }
+  const gInstGeo=new THREE.InstancedBufferGeometry(); gInstGeo.instanceCount=GRASS_COUNT;
+  gInstGeo.setAttribute('position',bladeGeo.attributes.position); gInstGeo.setAttribute('uv',bladeGeo.attributes.uv); gInstGeo.setIndex(bladeGeo.index);
+  gInstGeo.setAttribute('instanceOffset',new THREE.InstancedBufferAttribute(new Float32Array(gOffsets),3));
+  gInstGeo.setAttribute('instanceScale',new THREE.InstancedBufferAttribute(new Float32Array(gScales),1));
+  gInstGeo.setAttribute('instanceRot',new THREE.InstancedBufferAttribute(new Float32Array(gRots),1));
+  gInstGeo.setAttribute('instanceColor',new THREE.InstancedBufferAttribute(new Float32Array(gColors),3));
+  const gUniforms={uTime:{value:0},uWindDir:{value:new THREE.Vector3(1,0,0.4)},uWindStrength:{value:0.85}};
+  const gMat=new THREE.ShaderMaterial({
+    vertexShader:`uniform float uTime; uniform vec3 uWindDir; uniform float uWindStrength; attribute vec3 instanceOffset; attribute float instanceScale; attribute float instanceRot; attribute vec3 instanceColor; varying vec3 vColor; void main(){ vColor=instanceColor; vec3 pos=position; pos.y*=instanceScale; float hf=pow(pos.y/max(instanceScale,0.001),2.0); pos.x+=uWindDir.x*uWindStrength*hf*0.6; float c=cos(instanceRot), s=sin(instanceRot); vec3 rot=vec3(pos.x*c-pos.z*s,pos.y,pos.x*s+pos.z*c); vec3 wp=rot+instanceOffset; gl_Position=projectionMatrix*viewMatrix*modelMatrix*vec4(wp,1.0); }`,
+    fragmentShader:`varying vec3 vColor; void main(){ gl_FragColor=vec4(vColor,1.0); }`,
+    uniforms:gUniforms, side:THREE.DoubleSide
+  });
+  const grassMesh=new THREE.Mesh(gInstGeo,gMat); scene.add(grassMesh);
+
+  setProgress(0.65,'生物...');
+
+  function createBoat(){
+    const g=new THREE.Group();
+    const hullGeo=new THREE.BoxGeometry(4,1.2,10,2,1,4);
+    const hull=new THREE.Mesh(hullGeo,new THREE.MeshStandardMaterial({color:0x8b5a2b})); hull.castShadow=true; g.add(hull);
+    const mast=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.09,8,8),new THREE.MeshStandardMaterial({color:0x4a3020})); mast.position.set(0,4.5,0.5); g.add(mast);
+    const sail=new THREE.Mesh(new THREE.PlaneGeometry(3.2,5),new THREE.MeshStandardMaterial({color:0xfffaf0,side:THREE.DoubleSide})); sail.position.set(0,4,0.6); g.add(sail);
+    return g;
+  }
+  const boat=createBoat(); boat.position.set(80,0,30); scene.add(boat); let boatVel=new THREE.Vector3(0.2,0,0.1);
+
+  const BIRD_COUNT=30; const birds=[]; for(let i=0;i<BIRD_COUNT;i++) birds.push({pos:new THREE.Vector3((Math.random()-0.5)*280,20+Math.random()*30,(Math.random()-0.5)*280), vel:new THREE.Vector3((Math.random()-0.5)*4,0,(Math.random()-0.5)*4)});
+  const birdGeo=new THREE.BufferGeometry(); birdGeo.setAttribute('position',new THREE.Float32BufferAttribute([0,0,0.3,-0.1,0,-0.2,0.1,0,-0.2, 0,0,0,-0.5,0,0.1,-0.1,0,-0.1, 0,0,0,0.1,0,-0.1,0.5,0,0.1],3)); birdGeo.computeVertexNormals();
+  const birdInst=new THREE.InstancedMesh(birdGeo,new THREE.MeshStandardMaterial({color:0xffffff}),BIRD_COUNT); scene.add(birdInst); const birdDummy=new THREE.Object3D();
+
+  const FISH_COUNT=60; const fishes=[]; for(let i=0;i<FISH_COUNT;i++){ const ang=Math.random()*Math.PI*2, rad=30+Math.random()*70; fishes.push({pos:new THREE.Vector3(Math.cos(ang)*rad,-2-Math.random()*10,Math.sin(ang)*rad), vel:new THREE.Vector3((Math.random()-0.5)*2,0,(Math.random()-0.5)*2), color:new THREE.Color().setHSL(0.55+Math.random()*0.1,0.7,0.6)}); }
+  const fishGeo=new THREE.ConeGeometry(0.15,0.7,5); fishGeo.rotateX(-Math.PI/2); const fishInst=new THREE.InstancedMesh(fishGeo,new THREE.MeshStandardMaterial({color:0xffffff}),FISH_COUNT); scene.add(fishInst); const fishDummy=new THREE.Object3D();
+
+  const JELLY_COUNT=8; const jellies=[];
+  function createJelly(col){
+    const group=new THREE.Group();
+    const bellGeo=new THREE.SphereGeometry(0.8,16,12,0,Math.PI*2,0,Math.PI*0.6);
+    const bellMat=new THREE.MeshStandardMaterial({color:col, emissive:col, emissiveIntensity:0.6, transparent:true, opacity:0.85});
+    const bell=new THREE.Mesh(bellGeo,bellMat); group.add(bell);
+    return group;
+  }
+  for(let i=0;i<JELLY_COUNT;i++){
+    const col=new THREE.Color().setHSL(0.5+Math.random()*0.4,0.9,0.65);
+    const jelly=createJelly(col); const ang=Math.random()*Math.PI*2, rad=20+Math.random()*60; jelly.position.set(Math.cos(ang)*rad,-6-Math.random()*10,Math.sin(ang)*rad); scene.add(jelly); jellies.push({mesh:jelly, vel:new THREE.Vector3((Math.random()-0.5)*0.2,0,(Math.random()-0.5)*0.2), baseY:jelly.position.y, ph:Math.random()*10});
   }
 
-  if(mode==='boat'){ controls.target.lerp(boat.position,0.05); const off=new THREE.Vector3(-15,8,15); camera.position.lerp(boat.position.clone().add(off),0.04); }
+  const skyGeo=new THREE.SphereGeometry(1500,16,16); const skyMat=new THREE.MeshBasicMaterial({color:0x6fb8e8, side:THREE.BackSide}); scene.add(new THREE.Mesh(skyGeo,skyMat));
 
-  controls.update();
+  const controls=new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping=true; controls.target.set(0,5,0);
 
-  miniCtx.clearRect(0,0,360,360); miniCtx.fillStyle='#0a2a44'; miniCtx.fillRect(0,0,360,360);
-  miniCtx.fillStyle='#2a5a2a'; miniCtx.beginPath(); miniCtx.arc(180,180,70,0,Math.PI*2); miniCtx.fill();
-  const bx=(boat.position.x/260)*120+180, bz=(boat.position.z/260)*120+180; miniCtx.fillStyle='#ffaa00'; miniCtx.beginPath(); miniCtx.arc(bx,bz,4,0,Math.PI*2); miniCtx.fill();
+  setProgress(0.9,'启动...');
 
-  if(t%0.5<0.02) statsEl.innerHTML=`<b>WebGL2 修复版</b> · ${renderer.info.render.triangles} 三角<br/>相机 ${camera.position.x.toFixed(1)},${camera.position.y.toFixed(1)},${camera.position.z.toFixed(1)}<br/>FPS ${(1/dt).toFixed(0)}`;
+  let mode='orbit';
+  document.querySelectorAll('[data-mode]').forEach(btn=>{ btn.addEventListener('click',()=>{ document.querySelectorAll('[data-mode]').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); mode=btn.dataset.mode; if(mode==='boat') controls.target.copy(boat.position); else if(mode==='dive'){ camera.position.set(10,-6,15); controls.target.set(0,-8,0); } else if(mode==='bird'){ camera.position.set(0,100,0); controls.target.set(0,0,0); } else if(mode==='jelly'){ camera.position.set(0,-8,15); controls.target.set(0,-8,0); } }); });
 
-  composer.render();
-  requestAnimationFrame(animate);
+  function bindToggle(id, mesh){ const el=document.getElementById(id); if(!el) return; el.addEventListener('click',()=>{ const v=!mesh.visible; mesh.visible=v; el.classList.toggle('active',v); }); }
+  bindToggle('tgGrass',grassMesh); bindToggle('tgRocks',rockInst); bindToggle('tgBirds',birdInst); bindToggle('tgFish',fishInst);
+  document.getElementById('tgJelly').addEventListener('click',e=>{ const v=!jellies[0].mesh.visible; jellies.forEach(j=>j.mesh.visible=v); e.target.classList.toggle('active',v); });
+  document.getElementById('tgBoat').addEventListener('click',e=>{ boat.visible=!boat.visible; e.target.classList.toggle('active',boat.visible); });
+  document.getElementById('tgWire').addEventListener('click',e=>{ const v=!islandMesh.material.wireframe; islandMesh.material.wireframe=v; oceanMat.wireframe=v; e.target.classList.toggle('active',v); });
+  document.getElementById('shot').addEventListener('click',()=>{ renderer.domElement.toBlob(b=>{ const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download='ocean.png'; a.click(); }); });
+
+  const windSlider=document.getElementById('wind'), waveSlider=document.getElementById('wave');
+  windSlider.addEventListener('input',e=>{ oceanParams.wind=parseFloat(e.target.value); document.getElementById('windV').textContent=oceanParams.wind.toFixed(2); });
+  waveSlider.addEventListener('input',e=>{ oceanParams.waveScale=parseFloat(e.target.value); document.getElementById('waveV').textContent=oceanParams.waveScale.toFixed(2); });
+
+  let lastTime=performance.now()/1000;
+  const tmp={}; const statsEl=document.getElementById('stats');
+  const miniCanvas=document.getElementById('miniCanvas'), miniCtx=miniCanvas.getContext('2d');
+
+  function animate(){
+    const now=performance.now()/1000, dt=Math.min(now-lastTime,0.05); lastTime=now; const t=now;
+    oceanParams.time=t; oceanUniforms.uTime.value=t; oceanUniforms.uWind.value=oceanParams.wind; oceanUniforms.uWaveScale.value=oceanParams.waveScale; gUniforms.uTime.value=t;
+
+    sampleOcean(boat.position.x,boat.position.z,t,tmp); boat.position.y=tmp.y+0.6;
+    boat.position.add(boatVel.clone().multiplyScalar(dt));
+    boatVel.clampLength(0,1.2);
+    if(boat.position.length()>250) boatVel.add(new THREE.Vector3().copy(boat.position).negate().normalize().multiplyScalar(0.02));
+
+    for(let i=0;i<BIRD_COUNT;i++){
+      const b=birds[i];
+      b.pos.add(b.vel.clone().multiplyScalar(dt));
+      if(b.pos.length()>300) b.vel.add(new THREE.Vector3().copy(b.pos).negate().normalize().multiplyScalar(0.05));
+      birdDummy.position.copy(b.pos);
+      const dir=b.vel.clone().normalize(); if(dir.length()>0.001){ birdDummy.lookAt(b.pos.clone().add(dir)); birdDummy.rotateX(-Math.PI/2); }
+      birdDummy.updateMatrix(); birdInst.setMatrixAt(i,birdDummy.matrix);
+    }
+    birdInst.instanceMatrix.needsUpdate=true;
+
+    for(let i=0;i<FISH_COUNT;i++){
+      const f=fishes[i];
+      f.pos.add(f.vel.clone().multiplyScalar(dt));
+      if(f.pos.length()>150) f.vel.add(new THREE.Vector3(-f.pos.x,0,-f.pos.z).normalize().multiplyScalar(0.02));
+      if(f.pos.y>-1) f.vel.y-=0.02;
+      if(f.pos.y<-18) f.vel.y+=0.02;
+      fishDummy.position.copy(f.pos); const dir=f.vel.clone().normalize(); if(dir.length()>0.001){ fishDummy.lookAt(f.pos.clone().add(dir)); fishDummy.rotateX(Math.PI/2); } fishDummy.updateMatrix(); fishInst.setMatrixAt(i,fishDummy.matrix); fishInst.setColorAt(i,f.color);
+    }
+    fishInst.instanceMatrix.needsUpdate=true; if(fishInst.instanceColor) fishInst.instanceColor.needsUpdate=true;
+
+    for(const j of jellies){
+      j.mesh.position.add(j.vel.clone().multiplyScalar(dt));
+      j.mesh.position.y=j.baseY+Math.sin(t*0.6+j.ph)*1.2;
+      if(Math.hypot(j.mesh.position.x,j.mesh.position.z)>140) j.vel.add(new THREE.Vector3(-j.mesh.position.x,0,-j.mesh.position.z).normalize().multiplyScalar(0.005));
+      if(j.mesh.position.y>-2) j.vel.y-=0.01;
+      if(j.mesh.position.y<-20) j.vel.y+=0.01;
+    }
+
+    if(mode==='boat'){ controls.target.lerp(boat.position,0.05); const off=new THREE.Vector3(-15,8,15); camera.position.lerp(boat.position.clone().add(off),0.04); }
+
+    controls.update();
+
+    miniCtx.clearRect(0,0,360,360); miniCtx.fillStyle='#0a2a44'; miniCtx.fillRect(0,0,360,360);
+    miniCtx.fillStyle='#2a5a2a'; miniCtx.beginPath(); miniCtx.arc(180,180,70,0,Math.PI*2); miniCtx.fill();
+    const bx=(boat.position.x/260)*120+180, bz=(boat.position.z/260)*120+180; miniCtx.fillStyle='#ffaa00'; miniCtx.beginPath(); miniCtx.arc(bx,bz,4,0,Math.PI*2); miniCtx.fill();
+
+    if(t%0.5<0.02) statsEl.innerHTML=`<b>WebGL2 修复版</b> · ${renderer.info.render.triangles} 三角<br/>相机 ${camera.position.x.toFixed(1)},${camera.position.y.toFixed(1)},${camera.position.z.toFixed(1)}<br/>FPS ${(1/dt).toFixed(0)}`;
+
+    composer.render();
+    requestAnimationFrame(animate);
+  }
+
+  setProgress(1,'完成');
+  setTimeout(()=>{ document.getElementById('loader').style.opacity='0'; setTimeout(()=>document.getElementById('loader').style.display='none',600); },400);
+
+  animate();
+
+  addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight); });
+
+}catch(e){
+  setError('启动失败: '+e.message+'\n'+(e.stack||''));
 }
+})();
 
-setProgress(1,'完成');
-setTimeout(()=>{ document.getElementById('loader').style.opacity='0'; setTimeout(()=>document.getElementById('loader').style.display='none',600); },400);
-
-animate();
-
-addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight); });
 </script>
 </body>
 </html>
