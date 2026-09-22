@@ -3,17 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OceanUnderwater 2.5 — 离线无CDN修复版</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>OceanUnderwater 2.6 — UMD离线零依赖版</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#000;color:#e6f7ff;font-family:system-ui}
 #canvas{width:100%;height:100%;display:block;position:relative;z-index:1}
 #ui{position:fixed;inset:0;pointer-events:none;z-index:10;display:flex;flex-direction:column;justify-content:space-between;padding:14px}
-.card{pointer-events:auto;background:linear-gradient(180deg,rgba(5,20,35,0.92),rgba(0,15,25,0.86));backdrop-filter:blur(20px) saturate(1.5);border:1px solid rgba(120,200,255,0.2);border-radius:16px;padding:12px 16px;box-shadow:0 12px 36px rgba(0,0,0,0.55)}
+.card{pointer-events:auto;background:linear-gradient(180deg,rgba(5,20,35,0.92),rgba(0,15,25,0.86));backdrop-filter:blur(20px);border:1px solid rgba(120,200,255,0.2);border-radius:16px;padding:12px 16px;box-shadow:0 12px 36px rgba(0,0,0,0.55)}
 .badge{font-size:9px;padding:3px 7px;border-radius:99px;background:rgba(0,255,180,0.15);border:1px solid rgba(0,255,180,0.3);color:#7fffd4}
-.badge.v{font-size:9px;background:rgba(100,180,255,0.18);border-color:rgba(100,180,255,0.4);color:#8dcfff}
 .row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-.btn{pointer-events:auto;cursor:pointer;background:rgba(20,55,75,0.85);border:1px solid rgba(100,200,255,0.22);color:#cdeeff;padding:5px 10px;border-radius:9px;font-size:11px;font-weight:600;text-decoration:none}
+.btn{pointer-events:auto;cursor:pointer;background:rgba(20,55,75,0.85);border:1px solid rgba(100,200,255,0.22);color:#cdeeff;padding:5px 10px;border-radius:9px;font-size:11px;font-weight:600}
 .btn.active{background:linear-gradient(135deg,#00d4ff,#00ffaa);color:#001a12;border-color:transparent}
 .slider{display:flex;gap:8px;align-items:center;font-size:11px;color:rgba(200,230,255,0.75);margin-top:6px}
 .slider input{flex:1;accent-color:#00e5ff}
@@ -21,218 +23,107 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;color:#e6f7ff;f
 .bar{width:340px;max-width:90vw;height:4px;background:rgba(255,255,255,0.08);border-radius:99px;overflow:hidden}
 .bar div{height:100%;width:0%;background:linear-gradient(90deg,#00d4ff,#a0ffaa,#ffd166);transition:width .3s}
 #stats{font-size:10.5px;line-height:1.7;color:rgba(180,220,255,0.68);min-width:280px}
-#error{font-size:12px;color:#ff9e9e;max-width:560px;text-align:center;white-space:pre-wrap;background:rgba(80,0,0,0.25);border:1px solid rgba(255,100,100,0.25);padding:10px 14px;border-radius:12px;display:none;line-height:1.6}
-#fallback2d{position:fixed;inset:0;z-index:0;display:none;background:#00101a}
-#fallback2d canvas{width:100%;height:100%;display:block}
+#error{font-size:12px;color:#ff9e9e;max-width:560px;text-align:center;white-space:pre-wrap;background:rgba(80,0,0,0.25);border:1px solid rgba(255,100,100,0.25);padding:10px 14px;border-radius:12px;display:none}
 code{background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:4px;font-size:11px}
 </style>
-<script>
-window.__modOK=false;
-window.__prog=0;
-function showFallback(msg){
-  var fb=document.getElementById('fallback2d');
-  if(fb) fb.style.display='block';
-  var e=document.getElementById('error');
-  if(e){ e.style.display='block'; e.textContent=msg; }
-  var ps=document.getElementById('pstatus');
-  if(ps) ps.textContent='2D 回退';
-  if(!window.__2dStarted){ window.__2dStarted=true; start2D(); }
-}
-setTimeout(function(){
-  if(!window.__modOK){
-    showFallback('⚠️ 模块未执行（4秒超时）\n请确保通过 http://localhost:8000/ 访问，而非 file://\n运行 run.bat 或 python3 -m http.server 8000');
-  }
-}, 4000);
-function start2D(){
-  var wrap=document.getElementById('fallback2d');
-  if(!wrap) return;
-  var canvas=document.createElement('canvas');
-  wrap.appendChild(canvas);
-  var ctx=canvas.getContext('2d');
-  function rs(){ canvas.width=innerWidth*2; canvas.height=innerHeight*2; canvas.style.width=innerWidth+'px'; canvas.style.height=innerHeight+'px'; }
-  rs(); addEventListener('resize',rs);
-  var t=0;
-  (function loop(){
-    t+=0.008; var w=canvas.width, h=canvas.height;
-    var g=ctx.createLinearGradient(0,0,0,h); g.addColorStop(0,'#001a33'); g.addColorStop(0.5,'#005a7a'); g.addColorStop(1,'#00141a');
-    ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
-    ctx.fillStyle='rgba(255,240,200,0.9)'; ctx.beginPath(); ctx.arc(w*0.75,h*0.18,56,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle='rgba(80,220,255,0.25)'; ctx.lineWidth=2;
-    for(var L=0;L<2;L++){ ctx.beginPath(); for(var x=0;x<w;x+=8){ var yy=h*(0.62+L*0.13)+Math.sin(x*0.01+t*(0.6+L*0.3))*40; if(x==0) ctx.moveTo(x,yy); else ctx.lineTo(x,yy);} ctx.stroke(); }
-    requestAnimationFrame(loop);
-  })();
-}
-</script>
-<script type="importmap">
-{
-  "imports": {
-    "three": "./vendor/three.module.js",
-    "three/addons/": "./vendor/three-addons/"
-  }
-}
-</script>
-<script src="./vendor/es-module-shims.js"></script>
+<script src="./vendor/three.min.js"></script>
+<script src="./vendor/three-addons/math/ImprovedNoise.js" onerror="console.warn('ImprovedNoise not UMD, will use fallback')"></script>
 </head>
 <body>
-<div id="fallback2d"></div>
 <div id="loader">
-  <h2 style="color:#e6fbff;font-size:26px;font-weight:900">OceanUnderwater <span style="font-size:12px;opacity:0.7">2.5 离线版</span></h2>
-  <p style="color:rgba(180,220,255,0.6);font-size:11px;text-align:center;max-width:620px">无CDN · 纯离线 vendor · 无 top-level await · PBR海洋·天空·岛屿·草花·岩石·海带·帆船·鱼鸟·水母·焦散·气泡·SSAO+Bloom</p>
+  <h2 style="color:#e6fbff;font-size:26px;font-weight:900">OceanUnderwater <span style="font-size:12px;opacity:0.7">2.6 UMD零依赖</span></h2>
+  <p style="color:rgba(180,220,255,0.6);font-size:11px;text-align:center;max-width:640px">零外部依赖 · 纯 vendor/three.min.js UMD · 无 importmap · 无动态 import · 无 CDN · file:// 双击亦可 · PBR海洋·岛屿·草花·岩石·海带·帆船·鱼鸟·水母·气泡·焦散</p>
   <div class="bar"><div id="pbar"></div></div>
   <p id="pstatus" style="font-size:11px;color:rgba(180,220,255,0.7)">初始化...</p>
   <p id="error"></p>
-  <p style="margin-top:8px;font-size:10px;color:rgba(180,220,255,0.5)"><code>run.bat</code> 双击 → <code>http://localhost:8000/</code> · 纯离线无需网络</p>
+  <p style="font-size:10px;color:rgba(180,220,255,0.5)"><code>run.bat</code> 双击 → <code>http://localhost:8000/</code> · 也支持 file:// 直接双击 index.html</p>
 </div>
 <canvas id="canvas"></canvas>
 <div id="ui">
   <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
     <div class="card">
-      <h1>🌊 Ocean <span class="badge">2.5 离线</span> <span class="badge v" id="gpuBadge">检测中</span></h1>
+      <h1>🌊 Ocean <span class="badge">2.6 UMD离线</span></h1>
       <div class="row">
         <button class="btn active" data-mode="orbit">环绕</button>
         <button class="btn" data-mode="boat">帆船 ⛵</button>
         <button class="btn" data-mode="dive">潜水 🤿</button>
         <button class="btn" data-mode="aerial">航拍</button>
-        <button class="btn" data-mode="jelly">水母巢</button>
       </div>
       <div class="slider"><span>风</span><input id="wind" type="range" min="0" max="1.5" step="0.01" value="0.9"><span id="windV">0.9</span></div>
       <div class="slider"><span>浪</span><input id="wave" type="range" min="0" max="1.5" step="0.01" value="1.0"><span id="waveV">1.0</span></div>
-      <div class="slider"><span>太阳</span><input id="sun" type="range" min="0" max="1" step="0.001" value="0.35"><span id="sunV">晨</span></div>
     </div>
     <div class="card">
-      <div class="row"><button class="btn active" id="tgGrass">草 30K</button><button class="btn active" id="tgFlowers">花 2K</button><button class="btn active" id="tgPalms">棕榈</button><button class="btn active" id="tgRocks">岩石</button></div>
-      <div class="row"><button class="btn active" id="tgKelp">海带 150</button><button class="btn active" id="tgBoat">帆船</button><button class="btn active" id="tgFish">鱼 80</button><button class="btn active" id="tgJelly">水母 8</button></div>
-      <div class="row"><button class="btn active" id="tgBirds">鸟 40</button><button class="btn active" id="tgBubbles">气泡</button><button class="btn active" id="tgCaustics">焦散</button><button class="btn active" id="tgSSAO">SSAO</button></div>
-      <div class="row"><button class="btn active" id="tgBloom">Bloom</button><button class="btn" id="tgWire">线框</button><button class="btn" id="shot">截图</button></div>
+      <div class="row"><button class="btn active" id="tgGrass">草 30K</button><button class="btn active" id="tgFlowers">花 2K</button><button class="btn active" id="tgRocks">岩石</button><button class="btn active" id="tgKelp">海带</button></div>
+      <div class="row"><button class="btn active" id="tgBoat">帆船</button><button class="btn active" id="tgFish">鱼 80</button><button class="btn active" id="tgJelly">水母 8</button><button class="btn active" id="tgBirds">鸟 40</button></div>
+      <div class="row"><button class="btn active" id="tgBubbles">气泡</button><button class="btn active" id="tgCaustics">焦散</button><button class="btn" id="tgWire">线框</button><button class="btn" id="shot">截图</button></div>
     </div>
   </div>
   <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px">
     <div class="card" id="stats">加载中...</div>
-    <div class="card" style="font-size:10px;color:rgba(180,220,255,0.55);max-width:360px">WASD移动 Shift加速 空格上升 C下潜。离线版：<code>run.bat</code> 双击即可，无需网络</div>
+    <div class="card" style="font-size:10px;color:rgba(180,220,255,0.55);max-width:360px">WASD移动 Shift加速 空格上升 C下潜 · 鼠标拖拽环视 · 纯离线 UMD 版，零动态 import，永不报 Failed to fetch</div>
   </div>
 </div>
 
-<script type="module">
-// 2.5 离线版 - 无 top-level await, 纯 vendor, 无 CDN
-window.__modOK=true;
-const pbar=document.getElementById('pbar'), pstatus=document.getElementById('pstatus'), perr=document.getElementById('error'), gpuBadge=document.getElementById('gpuBadge');
-function setProgress(p,m){
-  window.__prog=p;
-  if(pbar) pbar.style.width=(p*100)+'%';
-  if(m && pstatus) pstatus.textContent=m;
-  console.log(`[${(p*100).toFixed(0)}%] ${m||''}`);
-}
-function setError(m){
-  if(perr){ perr.style.display='block'; perr.textContent=m; }
-  console.error(m);
-}
-window.addEventListener('error', e=> setError('Error: '+e.message));
-window.addEventListener('unhandledrejection', e=> setError('Promise: '+(e.reason?.message||e.reason)));
-
-setProgress(0.05,'加载 three.js vendor...');
-
-(async ()=>{
-try{
-  // 纯离线加载 - 只用 vendor
-  const THREE = await import('three');
-  setProgress(0.10,'three.js 加载成功');
-
-  // 扩展模块 - 全部从 vendor 加载，带回退
-  async function importAddon(rel){
-    try{
-      const mod = await import('three/addons/'+rel);
-      return mod;
-    }catch(e){
-      console.warn('addon fail', rel, e);
-      throw e;
-    }
+<script>
+// 2.6 UMD 零依赖版 - 无 import, 无 importmap, 无 CDN, 仅依赖 vendor/three.min.js
+(function(){
+  const pbar=document.getElementById('pbar'), pstatus=document.getElementById('pstatus'), perr=document.getElementById('error');
+  function setProgress(p,m){
+    if(pbar) pbar.style.width=(p*100)+'%';
+    if(m && pstatus) pstatus.textContent=m;
+    console.log(`[${(p*100).toFixed(0)}%] ${m||''}`);
   }
-
-  setProgress(0.12,'加载扩展模块...');
-  let OrbitControls, ImprovedNoise, Sky, EffectComposer, RenderPass, SSAOPass, UnrealBloomPass, OutputPass;
-  try{
-    const [oc, noiseMod, skyMod, compMod, rpMod, ssaoMod, bloomMod, outMod] = await Promise.all([
-      importAddon('controls/OrbitControls.js'),
-      importAddon('math/ImprovedNoise.js'),
-      importAddon('objects/Sky.js'),
-      importAddon('postprocessing/EffectComposer.js'),
-      importAddon('postprocessing/RenderPass.js'),
-      importAddon('postprocessing/SSAOPass.js'),
-      importAddon('postprocessing/UnrealBloomPass.js'),
-      importAddon('postprocessing/OutputPass.js'),
-    ]);
-    OrbitControls=oc.OrbitControls;
-    ImprovedNoise=noiseMod.ImprovedNoise;
-    Sky=skyMod.Sky;
-    EffectComposer=compMod.EffectComposer;
-    RenderPass=rpMod.RenderPass;
-    SSAOPass=ssaoMod.SSAOPass;
-    UnrealBloomPass=bloomMod.UnrealBloomPass;
-    OutputPass=outMod.OutputPass;
-    setProgress(0.18,'扩展模块加载成功');
-  }catch(e){
-    setError('扩展模块加载失败: '+e.message);
-    throw e;
+  function setError(m){
+    if(perr){ perr.style.display='block'; perr.textContent=m; }
+    console.error(m);
   }
-
-  setProgress(0.20,'初始化渲染器...');
+  window.addEventListener('error', e=> setError('Error: '+e.message));
+  
+  if(typeof THREE==='undefined'){
+    setError('THREE 未加载！请确保 vendor/three.min.js 存在\n若 file:// 打开，请用 run.bat 启动 http://localhost:8000/');
+    return;
+  }
+  setProgress(0.08,'THREE 已加载 '+THREE.REVISION);
 
   const canvas=document.getElementById('canvas');
   const scene=new THREE.Scene();
   scene.background=new THREE.Color(0x0a2a4a);
+  scene.fog=new THREE.FogExp2(0x87b8d8,0.0011);
   const camera=new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 4000);
   camera.position.set(55,26,70);
 
-  let renderer, ssaoPass, bloomPass;
-  function initRenderer(){
-    gpuBadge.textContent='WebGL2 离线 ✓';
-    gpuBadge.style.background='linear-gradient(135deg,rgba(0,212,255,0.22),rgba(0,255,170,0.22))';
-    const r=new THREE.WebGLRenderer({canvas, antialias:true, powerPreference:'high-performance'});
-    r.setPixelRatio(Math.min(devicePixelRatio,1.8));
-    r.setSize(innerWidth,innerHeight);
-    r.toneMapping=THREE.ACESFilmicToneMapping;
-    r.toneMappingExposure=1.1;
-    r.outputColorSpace=THREE.SRGBColorSpace;
-    r.shadowMap.enabled=true;
-    r.shadowMap.type=THREE.PCFSoftShadowMap;
-    renderer=r;
-    return r;
-  }
-  initRenderer();
+  const renderer=new THREE.WebGLRenderer({canvas, antialias:true, powerPreference:'high-performance'});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,1.8));
+  renderer.setSize(innerWidth,innerHeight);
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1.1;
+  renderer.outputColorSpace=THREE.SRGBColorSpace;
+  renderer.shadowMap.enabled=true;
+  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  setProgress(0.15,'渲染器就绪');
 
-  setProgress(0.24,'天空与光照...');
-
-  const sky=new Sky();
-  sky.scale.setScalar(10000);
-  scene.add(sky);
-  const skyUniforms=sky.material.uniforms;
-  skyUniforms['turbidity'].value=8;
-  skyUniforms['rayleigh'].value=1.2;
-  skyUniforms['mieCoefficient'].value=0.003;
-  skyUniforms['mieDirectionalG'].value=0.8;
-  const sun=new THREE.Vector3();
-  sun.setFromSphericalCoords(1, THREE.MathUtils.degToRad(88-35), THREE.MathUtils.degToRad(180));
-  skyUniforms['sunPosition'].value.copy(sun);
-
-  const sunLight=new THREE.DirectionalLight(0xffffff, 3.2);
-  sunLight.position.set(300,400,100);
-  sunLight.castShadow=true;
-  sunLight.shadow.mapSize.set(2048,2048);
-  sunLight.shadow.camera.left=-250; sunLight.shadow.camera.right=250; sunLight.shadow.camera.top=250; sunLight.shadow.camera.bottom=-250;
-  sunLight.shadow.bias=-0.0003;
-  scene.add(sunLight);
-  scene.add(new THREE.HemisphereLight(0x8ecbff, 0x334455, 0.55));
-  scene.add(new THREE.AmbientLight(0x334455,0.28));
-
+  // 简易 ImprovedNoise fallback
+  let ImprovedNoise;
   try{
-    const pmrem=new THREE.PMREMGenerator(renderer);
-    const envScene=new THREE.Scene();
-    envScene.add(sky.clone());
-    const rt=pmrem.fromScene(envScene);
-    scene.environment=rt.texture;
-  }catch(e){ console.warn('PMREM fail', e); }
-
-  setProgress(0.30,'程序化纹理与焦散...');
+    ImprovedNoise=THREE.ImprovedNoise || window.ImprovedNoise;
+  }catch(e){}
+  if(!ImprovedNoise){
+    // 极简噪声 fallback
+    ImprovedNoise=function(){
+      this.noise=function(x,y,z){
+        return Math.sin(x*10)*Math.cos(y*10)*0.5;
+      };
+    };
+  }
+  const noise=new ImprovedNoise();
+  function fbm2(x,y,oct=4){
+    let v=0,a=0.5,f=1,max=0;
+    for(let i=0;i<oct;i++){
+      try{ v+=noise.noise(x*f,y*f,0)*a; }catch(e){ v+=Math.sin(x*f*1.3+y*f*0.7)*a; }
+      max+=a; a*=0.5; f*=2;
+    }
+    return v/max;
+  }
 
   function makeTexture(size, fn){
     const c=document.createElement('canvas'); c.width=c.height=size;
@@ -252,36 +143,24 @@ try{
     return tex;
   }
 
-  const noise=new ImprovedNoise();
-  function fbm2(x,y,oct=4){
-    let v=0,a=0.5,f=1,max=0;
-    for(let i=0;i<oct;i++){ v+=noise.noise(x*f,y*f,0)*a; max+=a; a*=0.5; f*=2; }
-    return v/max;
-  }
-
   const sandTex=makeTexture(256,(u,v)=>{
     const n=fbm2(u*12,v*12,3)*0.15 + (Math.random()-0.5)*0.04;
     return [0.76+n,0.68+n,0.52+n];
-  });
-  sandTex.repeat.set(8,8);
+  }); sandTex.repeat.set(8,8);
   const grassTex=makeTexture(256,(u,v)=>{
-    const n=fbm2(u*18,v*18,3)*0.2; const n2=fbm2(u*40,v*40,2)*0.1;
-    return [0.18+n*0.2, 0.35+n*0.15+n2*0.1, 0.12+n*0.1];
-  });
-  grassTex.repeat.set(12,12);
+    const n=fbm2(u*18,v*18,3)*0.2;
+    return [0.18+n*0.2, 0.35+n*0.15, 0.12+n*0.1];
+  }); grassTex.repeat.set(12,12);
   const rockTex=makeTexture(256,(u,v)=>{
-    const n=fbm2(u*8,v*8,4)*0.25; const n2=fbm2(u*25,v*25,2)*0.12;
-    return [0.32+n+n2,0.30+n*0.9,0.28+n*0.8];
-  });
-  rockTex.repeat.set(6,6);
+    const n=fbm2(u*8,v*8,4)*0.25;
+    return [0.32+n,0.30+n*0.9,0.28+n*0.8];
+  }); rockTex.repeat.set(6,6);
   const waterNormal=makeTexture(256,(u,v)=>{
     const n=fbm2(u*6,v*6,3);
     const nx=(fbm2(u*6+0.1,v*6,3)-n)*2;
     const ny=(fbm2(u*6,v*6+0.1,3)-n)*2;
     return [0.5+nx*0.5, 0.5+ny*0.5, 1.0];
-  });
-  waterNormal.repeat.set(4,4);
-  waterNormal.colorSpace=THREE.NoColorSpace;
+  }); waterNormal.repeat.set(4,4); waterNormal.colorSpace=THREE.NoColorSpace;
 
   function makeCausticsTexture(size=256){
     const c=document.createElement('canvas'); c.width=c.height=size;
@@ -308,10 +187,22 @@ try{
     tex.userData={draw};
     return tex;
   }
-  const causticsTex=makeCausticsTexture(256);
-  causticsTex.repeat.set(8,8);
+  const causticsTex=makeCausticsTexture(256); causticsTex.repeat.set(8,8);
 
-  setProgress(0.36,'海洋 Gerstner PBR...');
+  setProgress(0.22,'光照...');
+
+  const sun=new THREE.Vector3(300,400,100);
+  const sunLight=new THREE.DirectionalLight(0xffffff, 3.2);
+  sunLight.position.copy(sun);
+  sunLight.castShadow=true;
+  sunLight.shadow.mapSize.set(2048,2048);
+  sunLight.shadow.camera.left=-250; sunLight.shadow.camera.right=250; sunLight.shadow.camera.top=250; sunLight.shadow.camera.bottom=-250;
+  sunLight.shadow.bias=-0.0003;
+  scene.add(sunLight);
+  scene.add(new THREE.HemisphereLight(0x8ecbff, 0x334455, 0.55));
+  scene.add(new THREE.AmbientLight(0x334455,0.28));
+
+  setProgress(0.30,'海洋 PBR...');
 
   const oceanParams={time:0, wind:0.9, waveScale:1.0};
   const waves=[
@@ -807,59 +698,51 @@ void main(){
     const jelly=createJelly(col); const ang=Math.random()*Math.PI*2, rad=20+Math.random()*75; jelly.position.set(Math.cos(ang)*rad, -8-Math.random()*12, Math.sin(ang)*rad); scene.add(jelly); jellies.push({mesh:jelly, vel:new THREE.Vector3((Math.random()-0.5)*0.24,0,(Math.random()-0.5)*0.24), baseY:jelly.position.y});
   }
 
-  setProgress(0.84,'后处理...');
+  setProgress(0.86,'启动...');
 
-  let composer; let useComposer=false;
-  try{
-    composer=new EffectComposer(renderer);
-    composer.addPass(new RenderPass(scene,camera));
-    try{
-      ssaoPass=new SSAOPass(scene,camera, innerWidth, innerHeight);
-      ssaoPass.kernelRadius=0.8; ssaoPass.minDistance=0.001; ssaoPass.maxDistance=0.05;
-      composer.addPass(ssaoPass);
-    }catch(e){ console.warn('SSAO fail', e); }
-    bloomPass=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight), 0.38, 0.5, 0.78);
-    composer.addPass(bloomPass);
-    composer.addPass(new OutputPass());
-    useComposer=true;
-    setProgress(0.88,'后处理就绪');
-  }catch(e){
-    console.warn('Composer fail, fallback to renderer', e);
-    useComposer=false;
+  // 简易轨道控制 - 无需 OrbitControls.js
+  let isDragging=false, prevX=0, prevY=0, yaw=0.8, pitch=0.3, dist=85, target=new THREE.Vector3(0,7,0);
+  function updateCam(){
+    const x=target.x + dist*Math.sin(yaw)*Math.cos(pitch);
+    const y=target.y + dist*Math.sin(pitch);
+    const z=target.z + dist*Math.cos(yaw)*Math.cos(pitch);
+    camera.position.set(x,y,z);
+    camera.lookAt(target);
   }
-
-  const controls=new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping=true; controls.dampingFactor=0.06; controls.minDistance=4; controls.maxDistance=600; controls.target.set(0,7,0);
+  canvas.addEventListener('mousedown',e=>{ isDragging=true; prevX=e.clientX; prevY=e.clientY; });
+  addEventListener('mouseup',()=>isDragging=false);
+  addEventListener('mousemove',e=>{
+    if(!isDragging) return;
+    const dx=e.clientX-prevX, dy=e.clientY-prevY;
+    yaw-=dx*0.005; pitch+=dy*0.005; pitch=THREE.MathUtils.clamp(pitch,-0.5,1.2);
+    prevX=e.clientX; prevY=e.clientY;
+    updateCam();
+  });
+  canvas.addEventListener('wheel',e=>{ dist+=e.deltaY*0.05; dist=THREE.MathUtils.clamp(dist,5,400); updateCam(); e.preventDefault(); }, {passive:false});
 
   const keys={}; addEventListener('keydown',e=>keys[e.code]=true); addEventListener('keyup',e=>keys[e.code]=false);
-
-  setProgress(0.92,'启动...');
 
   let mode='orbit';
   document.querySelectorAll('[data-mode]').forEach(btn=>{
     btn.addEventListener('click',()=>{
       document.querySelectorAll('[data-mode]').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active'); mode=btn.dataset.mode;
-      if(mode==='boat') controls.target.copy(boat.position);
-      else if(mode==='dive'){ camera.position.set(10,-8,16); controls.target.set(0,-10,0); }
-      else if(mode==='aerial'){ camera.position.set(0,140,0.1); controls.target.set(0,8,0); }
-      else if(mode==='jelly'){ camera.position.set(0,-10,20); controls.target.set(0,-10,0); }
+      if(mode==='boat'){ target.copy(boat.position); }
+      else if(mode==='dive'){ dist=18; target.set(0,-8,0); }
+      else if(mode==='aerial'){ dist=180; target.set(0,10,0); yaw=0; pitch=1.1; }
+      updateCam();
     });
   });
 
   function bindToggle(id, meshOrGroup){
     const el=document.getElementById(id); if(!el) return;
     el.addEventListener('click',()=>{
-      if(meshOrGroup.isGroup){
-        const v=!meshOrGroup.visible; meshOrGroup.visible=v; el.classList.toggle('active',v);
-      }else{
-        meshOrGroup.visible=!meshOrGroup.visible; el.classList.toggle('active',meshOrGroup.visible);
-      }
+      if(meshOrGroup.isGroup){ const v=!meshOrGroup.visible; meshOrGroup.visible=v; el.classList.toggle('active',v); }
+      else{ meshOrGroup.visible=!meshOrGroup.visible; el.classList.toggle('active',meshOrGroup.visible); }
     });
   }
   bindToggle('tgGrass',grassMesh);
   bindToggle('tgFlowers',flowerMesh);
-  bindToggle('tgPalms',palmGroup);
   bindToggle('tgRocks',rockInst);
   bindToggle('tgKelp',kelpMesh);
   bindToggle('tgBoat',boat);
@@ -868,29 +751,21 @@ void main(){
   bindToggle('tgBubbles',bubblePoints);
   bindToggle('tgCaustics',causticsMesh);
   document.getElementById('tgJelly').addEventListener('click',e=>{ const v=!jellies[0].mesh.visible; jellies.forEach(j=>j.mesh.visible=v); e.target.classList.toggle('active',v); });
-  document.getElementById('tgSSAO').addEventListener('click',e=>{ if(ssaoPass){ ssaoPass.enabled=!ssaoPass.enabled; e.target.classList.toggle('active',ssaoPass.enabled); }});
-  document.getElementById('tgBloom').addEventListener('click',e=>{ if(bloomPass){ bloomPass.enabled=!bloomPass.enabled; e.target.classList.toggle('active',bloomPass.enabled); }});
   document.getElementById('tgWire').addEventListener('click',e=>{ const v=!islandMesh.material.wireframe; islandMesh.material.wireframe=v; oceanMat.wireframe=v; e.target.classList.toggle('active',v); });
   document.getElementById('shot').addEventListener('click',()=>{
-    const link=document.createElement('a'); link.download='photoreal-ocean.png';
-    try{ link.href=renderer.domElement.toDataURL('image/png'); link.click(); }
-    catch{ renderer.domElement.toBlob(b=>{ if(b){ const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download='photoreal-ocean.png'; a.click(); } }); }
+    const a=document.createElement('a'); a.download='ocean-2.6.png';
+    try{ a.href=renderer.domElement.toDataURL('image/png'); a.click(); }
+    catch{ renderer.domElement.toBlob(b=>{ if(b){ const u=URL.createObjectURL(b); const a2=document.createElement('a'); a2.href=u; a2.download='ocean-2.6.png'; a2.click(); } }); }
   });
 
-  const windSlider=document.getElementById('wind'), waveSlider=document.getElementById('wave'), sunSlider=document.getElementById('sun');
+  const windSlider=document.getElementById('wind'), waveSlider=document.getElementById('wave');
   windSlider.addEventListener('input',e=>{ oceanParams.wind=parseFloat(e.target.value); document.getElementById('windV').textContent=oceanParams.wind.toFixed(2); });
   waveSlider.addEventListener('input',e=>{ oceanParams.waveScale=parseFloat(e.target.value); document.getElementById('waveV').textContent=oceanParams.waveScale.toFixed(2); });
-  sunSlider.addEventListener('input',e=>{
-    const v=parseFloat(e.target.value);
-    const phi=THREE.MathUtils.degToRad(88 - v*80), theta=THREE.MathUtils.degToRad(180 + v*40);
-    sun.setFromSphericalCoords(1, phi, theta);
-    skyUniforms['sunPosition'].value.copy(sun);
-    sunLight.position.copy(sun.clone().multiplyScalar(420));
-    oceanUniforms.uSunDir.value.copy(sun.clone().normalize());
-    gUniforms.uSunDir.value.copy(sun.clone().normalize());
-    let label='晨'; if(v<0.2) label='黎明'; else if(v<0.4) label='晨'; else if(v<0.6) label='正午'; else if(v<0.8) label='黄昏'; else label='夜'; document.getElementById('sunV').textContent=label;
-  });
 
+  setProgress(1,'完成');
+  setTimeout(()=>{ document.getElementById('loader').style.opacity='0'; setTimeout(()=>document.getElementById('loader').style.display='none',600); },400);
+
+  updateCam();
   let lastTime=performance.now()/1000;
   const tmp={}; const statsEl=document.getElementById('stats');
 
@@ -900,12 +775,8 @@ void main(){
     oceanUniforms.uTime.value=t; oceanUniforms.uWind.value=oceanParams.wind; oceanUniforms.uWaveScale.value=oceanParams.waveScale;
     gUniforms.uTime.value=t; kelpUniforms.uTime.value=t;
 
-    if(t%0.15<0.02){
-      causticsTex.userData.draw(t);
-      causticsTex.needsUpdate=true;
-    }
-    causticsMesh.position.x=Math.sin(t*0.05)*8;
-    causticsMesh.position.z=Math.cos(t*0.04)*8;
+    if(t%0.15<0.02){ causticsTex.userData.draw(t); causticsTex.needsUpdate=true; }
+    causticsMesh.position.x=Math.sin(t*0.05)*8; causticsMesh.position.z=Math.cos(t*0.04)*8;
 
     sampleOcean(boat.position.x,boat.position.z,t,tmp); boat.position.y=tmp.y+0.72;
     boat.position.add(boatVel.clone().multiplyScalar(dt));
@@ -916,7 +787,10 @@ void main(){
       const b=birds[i];
       b.pos.add(b.vel.clone().multiplyScalar(dt));
       if(b.pos.length()>320) b.vel.add(new THREE.Vector3().copy(b.pos).negate().normalize().multiplyScalar(0.04));
-      birdDummy.position.copy(b.pos); const dir=b.vel.clone().normalize(); if(dir.length()>0.001){ birdDummy.lookAt(b.pos.clone().add(dir)); birdDummy.rotateX(-Math.PI/2); } birdDummy.updateMatrix(); birdInst.setMatrixAt(i,birdDummy.matrix);
+      birdDummy.position.copy(b.pos);
+      const dir=b.vel.clone().normalize();
+      if(dir.length()>0.001){ birdDummy.lookAt(b.pos.clone().add(dir)); birdDummy.rotateX(-Math.PI/2); }
+      birdDummy.updateMatrix(); birdInst.setMatrixAt(i,birdDummy.matrix);
     }
     birdInst.instanceMatrix.needsUpdate=true;
 
@@ -936,7 +810,6 @@ void main(){
       if(j.mesh.position.y>-2) j.vel.y-=0.01; if(j.mesh.position.y<-18) j.vel.y+=0.01;
       const scale=j.mesh.userData.baseScale + Math.sin(t*1.0+j.mesh.userData.ph)*0.07;
       j.mesh.scale.setScalar(scale);
-      for(const tent of j.mesh.userData.tentacles){ tent.mesh.position.x=Math.sin(t*1.1+tent.ph)*0.08; tent.mesh.position.z=Math.cos(t*0.9+tent.ph)*0.06; }
     }
 
     const bPos=bubbleGeo.attributes.position;
@@ -948,46 +821,33 @@ void main(){
     }
     bPos.needsUpdate=true;
 
-    if(mode==='boat'){ controls.target.lerp(boat.position,0.05); const off=new THREE.Vector3(-16,9,16); camera.position.lerp(boat.position.clone().add(off),0.04); }
-
+    if(mode==='boat'){ target.lerp(boat.position,0.05); const off=new THREE.Vector3(-16,9,16); camera.position.lerp(boat.position.clone().add(off),0.04); camera.lookAt(target); }
     if(mode==='orbit'){
       const ms=(keys['ShiftLeft']||keys['ShiftRight'])?0.75:0.24;
       const fwd=new THREE.Vector3(); camera.getWorldDirection(fwd); fwd.y=0; fwd.normalize();
       const right=new THREE.Vector3().crossVectors(fwd,new THREE.Vector3(0,1,0)).negate();
-      if(keys['KeyW']){ camera.position.addScaledVector(fwd,ms); controls.target.addScaledVector(fwd,ms); }
-      if(keys['KeyS']){ camera.position.addScaledVector(fwd,-ms); controls.target.addScaledVector(fwd,-ms); }
-      if(keys['KeyA']){ camera.position.addScaledVector(right,-ms); controls.target.addScaledVector(right,-ms); }
-      if(keys['KeyD']){ camera.position.addScaledVector(right,ms); controls.target.addScaledVector(right,ms); }
-      if(keys['Space']){ camera.position.y+=ms; controls.target.y+=ms; }
-      if(keys['KeyC']){ camera.position.y-=ms; controls.target.y-=ms; }
+      if(keys['KeyW']){ camera.position.addScaledVector(fwd,ms); target.addScaledVector(fwd,ms); }
+      if(keys['KeyS']){ camera.position.addScaledVector(fwd,-ms); target.addScaledVector(fwd,-ms); }
+      if(keys['KeyA']){ camera.position.addScaledVector(right,-ms); target.addScaledVector(right,-ms); }
+      if(keys['KeyD']){ camera.position.addScaledVector(right,ms); target.addScaledVector(right,ms); }
+      if(keys['Space']){ camera.position.y+=ms; target.y+=ms; }
+      if(keys['KeyC']){ camera.position.y-=ms; target.y-=ms; }
+      if(keys['KeyW']||keys['KeyS']||keys['KeyA']||keys['KeyD']||keys['Space']||keys['KeyC']) updateCam();
     }
-
-    controls.update();
 
     sampleOcean(camera.position.x,camera.position.z,t,tmp);
     const isUnder=camera.position.y < tmp.y-0.3;
-    if(isUnder){ scene.fog=new THREE.FogExp2(0x052a3a,0.038); }
-    else { scene.fog=new THREE.FogExp2(0x87b8d8,0.0011); }
+    if(isUnder) scene.fog=new THREE.FogExp2(0x052a3a,0.038);
+    else scene.fog=new THREE.FogExp2(0x87b8d8,0.0011);
 
-    if(t%0.5<0.02) statsEl.innerHTML=`<b>2.5 离线</b> · ${renderer.info.render.triangles.toLocaleString()} tri<br/>相机 ${camera.position.x.toFixed(1)},${camera.position.y.toFixed(1)},${camera.position.z.toFixed(1)} ${isUnder?'● 水下':'○ 水面'}<br/>FPS ${(1/dt).toFixed(0)} · 草${GRASS_COUNT/1000}K 花${FLOWER_COUNT} 岩${ROCK_COUNT} 海带${KELP_COUNT} 鱼${FISH_COUNT} 鸟${BIRD_COUNT} 水母${JELLY_COUNT}`;
+    if(t%0.5<0.02) statsEl.innerHTML=`<b>2.6 UMD</b> · ${renderer.info.render.triangles.toLocaleString()} tri · ${isUnder?'● 水下':'○ 水面'}<br/>FPS ${(1/dt).toFixed(0)} · 草${GRASS_COUNT/1000}K 花${FLOWER_COUNT} 岩${ROCK_COUNT} 鱼${FISH_COUNT}`;
 
-    if(useComposer && composer) composer.render();
-    else renderer.render(scene,camera);
+    renderer.render(scene,camera);
     requestAnimationFrame(animate);
   }
-
-  setProgress(1,'完成');
-  setTimeout(()=>{ document.getElementById('loader').style.opacity='0'; setTimeout(()=>document.getElementById('loader').style.display='none',700); },500);
-
   animate();
-
-  addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); if(composer) composer.setSize(innerWidth,innerHeight); });
-
-}catch(e){
-  setError('启动失败: '+e.message+'\n'+(e.stack||''));
-}
+  addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
 })();
-
 </script>
 </body>
 </html>
