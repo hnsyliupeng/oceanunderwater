@@ -29,8 +29,12 @@ setTimeout(function(){ if(!window.__modOK){ var e=document.getElementById('error
   "imports": {
     "three": "./node_modules/three/build/three.module.js",
     "three/addons/": "./node_modules/three/examples/jsm/",
+    "three-vendor": "./vendor/three.module.js",
+    "three-vendor-addons/": "./vendor/three-addons/",
     "three-cdn": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "three-cdn-addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    "three-cdn-addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+    "three-jsdelivr": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three-jsdelivr-addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
   }
 }
 </script>
@@ -71,24 +75,33 @@ window.addEventListener('unhandledrejection', e=> setError('Promise: '+(e.reason
 
 setProgress(0.05,'检测 WebGPU...');
 
-function loadThree(){
-  return new Promise(async (resolve,reject)=>{
+async function loadThree(){
+  const candidates=[
+    {name:'node_modules', three:'three', base:'three/addons/'},
+    {name:'vendor', three:'three-vendor', base:'three-vendor-addons/'},
+    {name:'unpkg CDN', three:'three-cdn', base:'three-cdn-addons/'},
+    {name:'jsdelivr CDN', three:'three-jsdelivr', base:'three-jsdelivr-addons/'},
+  ];
+  const direct=[
+    {name:'direct vendor', three:'./vendor/three.module.js', base:'./vendor/three-addons/'},
+    {name:'direct node_modules', three:'./node_modules/three/build/three.module.js', base:'./node_modules/three/examples/jsm/'},
+    {name:'direct unpkg', three:'https://unpkg.com/three@0.160.0/build/three.module.js', base:'https://unpkg.com/three@0.160.0/examples/jsm/'},
+    {name:'direct jsdelivr', three:'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js', base:'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/'},
+  ];
+  for(const cand of [...candidates, ...direct]){
     try{
-      const res=await fetch('./node_modules/three/build/three.module.js', {method:'HEAD'}).catch(()=>null);
-      if(res && res.ok){
-        const mod=await import('three');
-        resolve({THREE:mod, base:'three/addons/'});
-        return;
-      }
-      throw new Error('local fail');
+      setProgress(0.07, `尝试 ${cand.name}...`);
+      console.log('try', cand.name);
+      const mod=await import(cand.three);
+      if(!mod || !mod.Color) throw new Error('invalid');
+      setProgress(0.12, `three.js OK: ${cand.name}`);
+      return {THREE:mod, base:cand.base};
     }catch(e){
-      console.warn('local fail, CDN', e);
-      try{
-        const mod=await import('three-cdn');
-        resolve({THREE:mod, base:'three-cdn-addons/'});
-      }catch(e2){ setError('three 加载失败: '+e2.message); reject(e2); }
+      console.warn('fail', cand.name, e.message);
+      continue;
     }
-  });
+  }
+  throw new Error('所有 three.js 源均失败，请 npm install 或检查网络');
 }
 
 (async ()=>{
