@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OceanUnderwater - 导航</title>
+<style>
+body{margin:0;font-family:system-ui;background:#00101a;color:#cdeeff;padding:24px}
+h1{font-size:28px;color:#dff8ff}
+.card{background:rgba(0,30,50,0.8);border:1px solid rgba(100,200,255,0.2);border-radius:14px;padding:16px 20px;margin:12px 0;max-width:600px}
+.card a{color:#7fffd4;text-decoration:none;font-weight:700;font-size:16px}
+.card p{font-size:13px;color:rgba(200,230,255,0.7);line-height:1.6;margin-top:6px}
+</style>
+</head>
+<body>
+<h1>🌊 OceanUnderwater 导航</h1>
+<p>如果主预览无法加载，请尝试以下直接链接（同一域名下）：</p>
+
+<div class="card">
+  <a href="/index.html">→ 轻量入口 (必定显示)</a>
+  <p>无外部依赖 2D 海洋动画 + 导航，保证预览一定可见。</p>
+</div>
+
+<div class="card">
+  <a href="/ocean-full.html">→ 主场景 2.0 完整版 (本地 three.js)</a>
+  <p>50K草 + 棕榈60 + 海带350 + 岩石260 + 花4K + 帆船尾迹 + 鸟80 + 鱼160 + 水母14 + 焦散 + Bloom + 小地图 + 灯塔。推荐。</p>
+</div>
+
+<div class="card">
+  <a href="/index-cdn.html">→ 主场景 CDN版</a>
+  <p>同上，但使用 unpkg CDN。</p>
+</div>
+
+<div class="card">
+  <a href="/demo.html">→ 模块化库演示</a>
+  <p>使用 src/index.js 的 OceanWorld 类，展示库的简洁用法。</p>
+</div>
+
+<div class="card">
+  <a href="/webgpu-compute.html">→ WebGPU Compute 纯计算海洋</a>
+  <p>无 three.js，Compute Shader 并行 Gerstner 波，展示底层 WebGPU 实现。</p>
+</div>
+
+<div class="card">
+  <a href="/src/">→ 源码目录</a>
+  <p>查看所有模块源码：ocean.js, terrain.js, grass.js, trees.js, kelp.js, caustics.js, wake.js, boat.js, ecosystem.js</p>
+</div>
+
+<p style="font-size:11px;color:rgba(180,220,255,0.5);margin-top:20px">
+如果仍无法预览，请检查浏览器控制台：<br/>
+- 需要 WebGL2 支持<br/>
+- 外网 CDN (unpkg.com) 需可访问，若被墙可尝试开启 VPN 或使用本地 three.js<br/>
+- 建议使用 Chrome/Edge 最新版，开启硬件加速
+</p>
+</body>
+</html>

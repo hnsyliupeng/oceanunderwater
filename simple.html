@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OceanUnderwater - 简单测试</title>
+<style>
+html,body{margin:0;height:100%;background:linear-gradient(180deg,#001a2e 0%,#003a5a 30%,#006a8a 60%,#00101a 100%);display:flex;align-items:center;justify-content:center;font-family:system-ui;color:#cdeeff}
+.card{background:rgba(0,20,35,0.8);backdrop-filter:blur(16px);border:1px solid rgba(100,200,255,0.2);border-radius:18px;padding:24px 32px;max-width:480px;text-align:center}
+h1{color:#7fffd4;margin:0 0 12px}
+p{line-height:1.7;color:rgba(200,230,255,0.8);font-size:14px}
+a{color:#00e5ff;text-decoration:none;font-weight:700}
+canvas{position:fixed;inset:0;z-index:-1}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="card">
+<h1>✅ 服务器正常</h1>
+<p>如果你看到这个页面，说明 HTTP 预览服务工作正常。</p>
+<p>主场景需要 three.js，若仍空白，请检查浏览器控制台：</p>
+<p>
+<a href="/index.html">主场景 2.0 (本地 three.js)</a><br/>
+<a href="/index-cdn.html">主场景 CDN版</a><br/>
+<a href="/demo.html">模块化演示</a><br/>
+<a href="/landing.html">导航页</a>
+</p>
+<p style="font-size:11px;color:rgba(180,220,255,0.5)">时间: <span id="time"></span><br/>UA: <span id="ua"></span></p>
+</div>
+<script>
+const c=document.getElementById('c'), ctx=c.getContext('2d');
+function resize(){ c.width=innerWidth; c.height=innerHeight; }
+resize(); addEventListener('resize',resize);
+let t=0;
+function loop(){
+  t+=0.01;
+  const w=c.width,h=c.height;
+  ctx.clearRect(0,0,w,h);
+  // simple wave lines
+  ctx.strokeStyle='rgba(100,200,255,0.15)';
+  for(let y=0;y<h;y+=30){
+    ctx.beginPath();
+    for(let x=0;x<w;x+=10){
+      const yy=y+Math.sin(x*0.01+t+y*0.005)*12;
+      if(x==0) ctx.moveTo(x,yy); else ctx.lineTo(x,yy);
+    }
+    ctx.stroke();
+  }
+  // fish
+  ctx.fillStyle='rgba(122,252,255,0.6)';
+  for(let i=0;i<8;i++){
+    const x=(Math.sin(t*0.5+i)*0.5+0.5)*w;
+    const y=(i/8)*h + Math.sin(t+i)*20;
+    ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fill();
+  }
+  requestAnimationFrame(loop);
+}
+loop();
+document.getElementById('time').textContent=new Date().toLocaleString();
+document.getElementById('ua').textContent=navigator.userAgent.slice(0,80);
+</script>
+</body>
+</html>

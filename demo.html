@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OceanUnderwater - 模块化库演示</title>
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#00101a}canvas{display:block;width:100%;height:100%}#info{position:fixed;left:12px;top:12px;background:rgba(0,20,35,0.8);backdrop-filter:blur(12px);padding:12px 16px;border-radius:12px;color:#cdeeff;font-family:system-ui;font-size:12px;border:1px solid rgba(100,200,255,0.2)}</style>
+<script src="./vendor/es-module-shims.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "./node_modules/three/build/three.module.js",
+    "three/addons/": "./node_modules/three/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="info">模块化库演示 - 使用 <code>src/index.js</code> 的 <code>OceanWorld</code><br>草 50k · 花 4k · 岩 260 · 鸟 80 · 鱼 160 · 水母 14</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { OceanWorld } from './src/index.js';
+
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled=true;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.1;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x7fb8d8,0.0012);
+scene.background = new THREE.Color(0x0a1f33);
+
+const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 2000);
+camera.position.set(40,18,60);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping=true;
+controls.target.set(0,5,0);
+
+// lights
+const sunPos = new THREE.Vector3(300,400,100);
+const sun = new THREE.DirectionalLight(0xfff6e0,2.5);
+sun.position.copy(sunPos);
+sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.left=-200; sun.shadow.camera.right=200; sun.shadow.camera.top=200; sun.shadow.camera.bottom=-200;
+scene.add(sun);
+scene.add(new THREE.HemisphereLight(0x8ecbff,0x0a2a44,0.6));
+
+// sky
+const skyGeo = new THREE.SphereGeometry(1500,16,16);
+const skyMat = new THREE.MeshBasicMaterial({color:0x6fb8e8, side:THREE.BackSide});
+scene.add(new THREE.Mesh(skyGeo, skyMat));
+
+// world
+const world = new OceanWorld(scene, {
+  ocean:{size:1000,res:256,wind:0.9},
+  island:{size:260,res:140},
+  grass:{count:50000},
+  flowers:{count:4000},
+  rocks:{count:260},
+  birdsCount:80,
+  fishCount:160,
+  jellyCount:14
+});
+
+// bubbles
+const bubbleGeo = new THREE.BufferGeometry();
+const bPos = new Float32Array(600*3);
+for(let i=0;i<600;i++){ const a=Math.random()*Math.PI*2,r=Math.random()*150; bPos[i*3]=Math.cos(a)*r; bPos[i*3+1]=-2-Math.random()*25; bPos[i*3+2]=Math.sin(a)*r; }
+bubbleGeo.setAttribute('position', new THREE.BufferAttribute(bPos,3));
+const bubbles = new THREE.Points(bubbleGeo, new THREE.PointsMaterial({size:0.18,color:0x8de8ff,transparent:true,opacity:0.4,sizeAttenuation:true}));
+scene.add(bubbles);
+
+let last=performance.now()/1000;
+function animate(){
+  const now=performance.now()/1000;
+  const dt=Math.min(now-last,0.05); last=now;
+  world.update(dt);
+  world.ocean.setSunDirection(sunPos);
+
+  // bubbles
+  const attr=bubbles.geometry.attributes.position;
+  for(let i=0;i<600;i++){ let y=attr.getY(i); y+=dt*0.5; if(y>1){ y=-2-Math.random()*25; const a=Math.random()*Math.PI*2,r=Math.random()*150; attr.setX(i,Math.cos(a)*r); attr.setZ(i,Math.sin(a)*r);} attr.setY(i,y); }
+  attr.needsUpdate=true;
+
+  // underwater check
+  const tmp={}; world.sampleOcean(camera.position.x,camera.position.z,tmp);
+  const under = camera.position.y < tmp.y;
+  if(under){ scene.fog = new THREE.FogExp2(0x0a2a44,0.04); scene.background=new THREE.Color(0x051a2a); }
+  else { scene.fog = new THREE.FogExp2(0x7fb8d8,0.0012); scene.background=new THREE.Color(0x0a1f33); }
+
+  controls.update();
+  renderer.render(scene,camera);
+  requestAnimationFrame(animate);
+}
+animate();
+addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
+</script>
+</body>
+</html>

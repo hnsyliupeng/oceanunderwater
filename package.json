@@ -1,0 +1,25 @@
+{
+  "name": "oceanunderwater",
+  "version": "1.0.0",
+  "description": "WebGPU 海洋生态 - 参考 RealIsland / Grass Meadow / Jelly Luminous Garden，包含岛屿、岩石、花草、帆船、鸟群、鱼群、发光水母的完整海洋场景库",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "python3 -m http.server 8000",
+    "build": "echo 'No build needed - pure ES modules'"
+  },
+  "keywords": [
+    "webgpu",
+    "ocean",
+    "threejs",
+    "gerstner",
+    "grass",
+    "jellyfish",
+    "ecosystem",
+    "realisland"
+  ],
+  "dependencies": {
+    "es-module-shims": "^2.8.4",
+    "three": "^0.160.0"
+  }
+}
