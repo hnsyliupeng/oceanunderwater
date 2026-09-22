@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OceanUnderwater 2.0 Full</title>
+<title>OceanUnderwater 2.0 Full — 修复版</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#00101a;font-family:system-ui}
@@ -22,16 +22,23 @@ html,body{width:100%;height:100%;overflow:hidden;background:#00101a;font-family:
 #webgpu{position:fixed;right:14px;top:14px;z-index:20;padding:6px 10px;border-radius:99px;font-size:11px;font-weight:700;background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.15);color:#fff}
 #minimap{position:fixed;right:14px;bottom:14px;z-index:20;width:180px;height:180px;border-radius:14px;overflow:hidden;border:1px solid rgba(100,200,255,0.25);background:#00101a}
 #minimap canvas{width:100%;height:100%}
-#loader{position:fixed;inset:0;z-index:100;background:radial-gradient(120% 120% at 50% 20%,#002a44 0%,#00101a 60%,#00080e 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .6s}
+#loader{position:fixed;inset:0;z-index:100;background:radial-gradient(120% 120% at 50% 20%,#002a44 0%,#00101a 60%,#00080e 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .6s;padding:20px}
 .progress{width:260px;height:4px;background:rgba(255,255,255,0.08);border-radius:99px;overflow:hidden}
 .progress-bar{height:100%;width:0%;background:linear-gradient(90deg,#00d4ff,#00ffaa);transition:width .3s}
+#error{font-size:11px;color:#ff8e8e;max-width:480px;text-align:center;white-space:pre-wrap;background:rgba(80,0,0,0.25);border:1px solid rgba(255,100,100,0.25);padding:8px 12px;border-radius:10px;display:none}
 </style>
-<script src="./vendor/es-module-shims.js"></script>
+<script>
+window.__modOK=false;
+setTimeout(function(){ if(!window.__modOK){ var e=document.getElementById('perror'); if(e){ e.style.display='block'; e.textContent='⚠️ 模块未执行（3秒超时）\n请勿 file:// 双击，务必 python3 -m http.server 8000 后 http://localhost:8000/ocean-full.html\n或双击 run.bat / local.html'; } } }, 3500);
+</script>
+<script src="./vendor/es-module-shims.js" onerror="var s=document.createElement('script'); s.src='https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js'; document.head.appendChild(s);"></script>
 <script type="importmap">
 {
   "imports": {
     "three": "./node_modules/three/build/three.module.js",
-    "three/addons/": "./node_modules/three/examples/jsm/"
+    "three/addons/": "./node_modules/three/examples/jsm/",
+    "three-cdn": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three-cdn-addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
   }
 }
 </script>
@@ -40,17 +47,22 @@ html,body{width:100%;height:100%;overflow:hidden;background:#00101a;font-family:
 <div id="webgpu">检测...</div>
 <div id="loader">
   <h2 style="color:#dff8ff">OceanUnderwater 2.0</h2>
-  <p style="color:rgba(180,220,255,0.6);font-size:12px;max-width:460px;text-align:center">50K草+棕榈+海带+岩石花海+帆船尾迹+鸟鱼水母+焦散+Bloom<br/>RealIsland / Grass Meadow / Jelly Garden 重构</p>
+  <p style="color:rgba(180,220,255,0.6);font-size:12px;max-width:460px;text-align:center">50K草+棕榈+海带+岩石花海+帆船尾迹+鸟鱼水母+焦散+Bloom — 修复版<br/>RealIsland / Grass Meadow / Jelly Garden</p>
   <div class="progress"><div class="progress-bar" id="pbar"></div></div>
   <p id="pstatus" style="font-size:11px;color:rgba(180,220,255,0.7)">初始化...</p>
-  <p id="perror" style="font-size:11px;color:#ff6b6b;max-width:400px;text-align:center"></p>
+  <p id="perror"></p>
+  <div style="display:flex;gap:8px;margin-top:8px">
+    <a href="/index.html" style="font-size:11px;color:#7fffd4;text-decoration:none;border:1px solid rgba(0,255,180,0.3);padding:4px 10px;border-radius:99px">主版 2.3</a>
+    <a href="/webgpu.html" style="font-size:11px;color:#8dcfff;text-decoration:none;border:1px solid rgba(100,180,255,0.3);padding:4px 10px;border-radius:99px">WebGPU版</a>
+    <a href="/local.html" style="font-size:11px;color:#ffd166;text-decoration:none;border:1px solid rgba(255,209,102,0.3);padding:4px 10px;border-radius:99px">file://兼容版</a>
+  </div>
 </div>
 <canvas id="canvas"></canvas>
 <div id="minimap"><canvas id="miniCanvas" width="360" height="360"></canvas></div>
 <div id="ui">
   <div class="top">
     <div class="card">
-      <h1>🌊 OceanUnderwater <span class="badge">WEBGL2</span></h1>
+      <h1>🌊 OceanUnderwater <span class="badge">WEBGL2 修复版</span></h1>
       <div class="row">
         <button class="btn active" data-mode="orbit">环绕</button>
         <button class="btn" data-mode="boat">帆船 ⛵</button>
@@ -72,24 +84,59 @@ html,body{width:100%;height:100%;overflow:hidden;background:#00101a;font-family:
 </div>
 
 <script type="module">
+window.__modOK=true;
 const pbar=document.getElementById('pbar'), pstatus=document.getElementById('pstatus'), perror=document.getElementById('perror');
 function setProgress(p,m){ pbar.style.width=(p*100)+'%'; if(m) pstatus.textContent=m; console.log(`[${(p*100).toFixed(0)}%] ${m}`); }
-function setError(msg){ perror.textContent=msg; pstatus.style.color='#ff6b6b'; }
-
-window.addEventListener('error', e=>{ setError('Error: '+e.message); console.error(e); });
-window.addEventListener('unhandledrejection', e=>{ setError('Promise: '+(e.reason?.message||e.reason)); console.error(e); });
+function setError(msg){ perror.style.display='block'; perror.textContent=msg; pstatus.style.color='#ff6b6b'; console.error(msg); }
+window.addEventListener('error', e=>{ setError('Error: '+e.message); });
+window.addEventListener('unhandledrejection', e=>{ setError('Promise: '+(e.reason?.message||e.reason)); });
 
 setProgress(0.05,'加载 three.js...');
 
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { ImprovedNoise } from 'three/addons/math/ImprovedNoise.js';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+async function loadThree(){
+  try{
+    const res=await fetch('./node_modules/three/build/three.module.js', {method:'HEAD'}).catch(()=>null);
+    if(res && res.ok){
+      const mod=await import('three');
+      return {THREE:mod, base:'three/addons/'};
+    }
+    throw new Error('local fail');
+  }catch(e){
+    console.warn('local fail, CDN', e);
+    setProgress(0.08,'本地失败，尝试 CDN...');
+    const mod=await import('three-cdn');
+    return {THREE:mod, base:'three-cdn-addons/'};
+  }
+}
 
-setProgress(0.12,'初始化渲染器...');
+let THREE, addonBase;
+try{
+  const loaded=await loadThree();
+  THREE=loaded.THREE;
+  addonBase=loaded.base;
+  setProgress(0.12,'three.js 加载成功');
+}catch(e){ setError('three 加载失败: '+e.message); throw e; }
+
+let OrbitControls, ImprovedNoise, EffectComposer, RenderPass, UnrealBloomPass, OutputPass;
+try{
+  const [oc, noiseMod, compMod, rpMod, bloomMod, outMod] = await Promise.all([
+    import(addonBase+'controls/OrbitControls.js'),
+    import(addonBase+'math/ImprovedNoise.js'),
+    import(addonBase+'postprocessing/EffectComposer.js'),
+    import(addonBase+'postprocessing/RenderPass.js'),
+    import(addonBase+'postprocessing/UnrealBloomPass.js'),
+    import(addonBase+'postprocessing/OutputPass.js'),
+  ]);
+  OrbitControls=oc.OrbitControls;
+  ImprovedNoise=noiseMod.ImprovedNoise;
+  EffectComposer=compMod.EffectComposer;
+  RenderPass=rpMod.RenderPass;
+  UnrealBloomPass=bloomMod.UnrealBloomPass;
+  OutputPass=outMod.OutputPass;
+  setProgress(0.18,'扩展加载成功');
+}catch(e){ setError('扩展加载失败: '+e.message); throw e; }
+
+setProgress(0.2,'初始化渲染器...');
 
 const canvas=document.getElementById('canvas');
 const scene=new THREE.Scene();
@@ -99,7 +146,6 @@ const camera=new THREE.PerspectiveCamera(65, innerWidth/innerHeight, 0.1, 3000);
 camera.position.set(38,20,58);
 
 let renderer, composer, bloomPass;
-let useWebGPU=false;
 const badge=document.getElementById('webgpu');
 
 try{
@@ -114,15 +160,6 @@ try{
   badge.textContent='WebGL2 已启用 ✓';
   badge.style.background='rgba(0,255,180,0.15)';
   badge.style.color='#7fffd4';
-  // try WebGPU if available (optional, not blocking)
-  if(navigator.gpu){
-    try{
-      const mod=await import('./node_modules/three/examples/jsm/renderers/webgpu/WebGPURenderer.js');
-      if(mod?.WebGPURenderer){
-        badge.textContent='WebGPU 可用，当前 WebGL2 (点击切换需刷新)';
-      }
-    }catch(e){ console.log('WebGPU check failed, using WebGL2', e); }
-  }
   composer=new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene,camera));
   bloomPass=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight), 0.35, 0.6, 0.85);
@@ -133,7 +170,7 @@ try{
   throw e;
 }
 
-setProgress(0.18,'光照...');
+setProgress(0.28,'光照...');
 
 const sunPos=new THREE.Vector3(300,400,100);
 const sunLight=new THREE.DirectionalLight(0xfff6e0,2.6);
@@ -176,9 +213,9 @@ function sampleOcean(x,z,time,out={}){
   return out;
 }
 
-setProgress(0.28,'海洋...');
+setProgress(0.35,'海洋...');
 
-const OCEAN_SIZE=800, OCEAN_RES=200;
+const OCEAN_SIZE=800, OCEAN_RES=180;
 const oceanGeo=new THREE.PlaneGeometry(OCEAN_SIZE,OCEAN_SIZE,OCEAN_RES,OCEAN_RES); oceanGeo.rotateX(-Math.PI/2);
 const oceanVert=`
 uniform float uTime; uniform float uWind; uniform float uWaveScale;
@@ -213,9 +250,9 @@ const oceanUniforms={uTime:{value:0},uWind:{value:oceanParams.wind},uWaveScale:{
 const oceanMat=new THREE.ShaderMaterial({vertexShader:oceanVert,fragmentShader:oceanFrag,uniforms:oceanUniforms});
 const oceanMesh=new THREE.Mesh(oceanGeo,oceanMat); oceanMesh.receiveShadow=true; scene.add(oceanMesh);
 
-setProgress(0.38,'岛屿...');
+setProgress(0.45,'岛屿...');
 
-const ISLAND_SIZE=260, ISLAND_RES=120;
+const ISLAND_SIZE=260, ISLAND_RES=100;
 const islandGeo=new THREE.PlaneGeometry(ISLAND_SIZE,ISLAND_SIZE,ISLAND_RES,ISLAND_RES); islandGeo.rotateX(-Math.PI/2);
 const ipos=islandGeo.attributes.position;
 const icolors=[]; const grassSpots=[];
@@ -235,23 +272,21 @@ for(let i=0;i<ipos.count;i++){
 islandGeo.setAttribute('color',new THREE.Float32BufferAttribute(icolors,3)); islandGeo.computeVertexNormals();
 const islandMesh=new THREE.Mesh(islandGeo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.9})); islandMesh.receiveShadow=true; islandMesh.castShadow=true; scene.add(islandMesh);
 
-setProgress(0.5,'植被...');
+setProgress(0.55,'植被...');
 
-// Rocks
 const rockBase=new THREE.IcosahedronGeometry(1,1);
-const ROCK_COUNT=180; const rockInst=new THREE.InstancedMesh(rockBase,new THREE.MeshStandardMaterial({color:0x6b6d68,roughness:0.95}),ROCK_COUNT);
+const ROCK_COUNT=160; const rockInst=new THREE.InstancedMesh(rockBase,new THREE.MeshStandardMaterial({color:0x6b6d68,roughness:0.95}),ROCK_COUNT);
 const dummy=new THREE.Object3D(); let rIdx=0;
 for(let i=0;i<ROCK_COUNT;i++){
-  const ang=Math.random()*Math.PI*2, rad=30+Math.random()*90;
+  const ang=Math.random()*Math.PI*2, rad=30+Math.random()*80;
   const x=Math.cos(ang)*rad, z=Math.sin(ang)*rad, r=Math.hypot(x,z);
   let y=r<120?Math.max(0,(1-THREE.MathUtils.smoothstep(40,130,r))*18):-2-Math.random()*8;
   if(y>20&&Math.random()<0.7) continue;
-  const s=0.4+Math.random()*1.5; dummy.position.set(x,y-s*0.3,z); dummy.rotation.set(Math.random()*Math.PI,Math.random()*Math.PI,Math.random()*Math.PI); dummy.scale.set(s,s*0.8,s); dummy.updateMatrix(); rockInst.setMatrixAt(rIdx++,dummy.matrix);
+  const s=0.4+Math.random()*1.2; dummy.position.set(x,y-s*0.3,z); dummy.rotation.set(Math.random()*Math.PI,Math.random()*Math.PI,Math.random()*Math.PI); dummy.scale.set(s,s*0.8,s); dummy.updateMatrix(); rockInst.setMatrixAt(rIdx++,dummy.matrix);
 }
 rockInst.instanceMatrix.needsUpdate=true; rockInst.castShadow=true; scene.add(rockInst);
 
-// Grass
-const GRASS_COUNT=20000;
+const GRASS_COUNT=15000;
 const bladeGeo=new THREE.PlaneGeometry(0.12,1,1,2); bladeGeo.translate(0,0.5,0);
 const gOffsets=[], gScales=[], gRots=[], gColors=[];
 for(let i=0;i<GRASS_COUNT;i++){
@@ -275,14 +310,8 @@ const gMat=new THREE.ShaderMaterial({
 });
 const grassMesh=new THREE.Mesh(gInstGeo,gMat); scene.add(grassMesh);
 
-// Palms
-const PALM_COUNT=40; const trunkGeo=new THREE.CylinderGeometry(0.18,0.32,5.5,6); const trunkInst=new THREE.InstancedMesh(trunkGeo,new THREE.MeshStandardMaterial({color:0x5a3d2a}),PALM_COUNT);
-let tIdx=0; for(let i=0;i<PALM_COUNT*2&&tIdx<PALM_COUNT;i++){ const spot=grassSpots[Math.floor(Math.random()*grassSpots.length)]; if(!spot||spot.y<2||spot.y>14) continue; if(Math.random()<0.85) continue; dummy.position.set(spot.x,spot.y,spot.z); dummy.rotation.y=Math.random()*Math.PI*2; dummy.scale.setScalar(0.8+Math.random()*0.5); dummy.updateMatrix(); trunkInst.setMatrixAt(tIdx++,dummy.matrix); }
-trunkInst.instanceMatrix.needsUpdate=true; trunkInst.castShadow=true; scene.add(trunkInst);
-
 setProgress(0.65,'生物...');
 
-// Boat
 function createBoat(){
   const g=new THREE.Group();
   const hullGeo=new THREE.BoxGeometry(4,1.2,10,2,1,4);
@@ -293,17 +322,14 @@ function createBoat(){
 }
 const boat=createBoat(); boat.position.set(80,0,30); scene.add(boat); let boatVel=new THREE.Vector3(0.2,0,0.1);
 
-// Birds
-const BIRD_COUNT=40; const birds=[]; for(let i=0;i<BIRD_COUNT;i++) birds.push({pos:new THREE.Vector3((Math.random()-0.5)*300,20+Math.random()*40,(Math.random()-0.5)*300), vel:new THREE.Vector3((Math.random()-0.5)*4,0,(Math.random()-0.5)*4), acc:new THREE.Vector3()});
+const BIRD_COUNT=30; const birds=[]; for(let i=0;i<BIRD_COUNT;i++) birds.push({pos:new THREE.Vector3((Math.random()-0.5)*280,20+Math.random()*30,(Math.random()-0.5)*280), vel:new THREE.Vector3((Math.random()-0.5)*4,0,(Math.random()-0.5)*4)});
 const birdGeo=new THREE.BufferGeometry(); birdGeo.setAttribute('position',new THREE.Float32BufferAttribute([0,0,0.3,-0.1,0,-0.2,0.1,0,-0.2, 0,0,0,-0.5,0,0.1,-0.1,0,-0.1, 0,0,0,0.1,0,-0.1,0.5,0,0.1],3)); birdGeo.computeVertexNormals();
 const birdInst=new THREE.InstancedMesh(birdGeo,new THREE.MeshStandardMaterial({color:0xffffff}),BIRD_COUNT); scene.add(birdInst); const birdDummy=new THREE.Object3D();
 
-// Fish
-const FISH_COUNT=80; const fishes=[]; for(let i=0;i<FISH_COUNT;i++){ const ang=Math.random()*Math.PI*2, rad=30+Math.random()*80; fishes.push({pos:new THREE.Vector3(Math.cos(ang)*rad,-2-Math.random()*12,Math.sin(ang)*rad), vel:new THREE.Vector3((Math.random()-0.5)*2,0,(Math.random()-0.5)*2), acc:new THREE.Vector3(), color:new THREE.Color().setHSL(0.55+Math.random()*0.1,0.7,0.6)}); }
+const FISH_COUNT=60; const fishes=[]; for(let i=0;i<FISH_COUNT;i++){ const ang=Math.random()*Math.PI*2, rad=30+Math.random()*70; fishes.push({pos:new THREE.Vector3(Math.cos(ang)*rad,-2-Math.random()*10,Math.sin(ang)*rad), vel:new THREE.Vector3((Math.random()-0.5)*2,0,(Math.random()-0.5)*2), color:new THREE.Color().setHSL(0.55+Math.random()*0.1,0.7,0.6)}); }
 const fishGeo=new THREE.ConeGeometry(0.15,0.7,5); fishGeo.rotateX(-Math.PI/2); const fishInst=new THREE.InstancedMesh(fishGeo,new THREE.MeshStandardMaterial({color:0xffffff}),FISH_COUNT); scene.add(fishInst); const fishDummy=new THREE.Object3D();
 
-// Jellies
-const JELLY_COUNT=10; const jellies=[];
+const JELLY_COUNT=8; const jellies=[];
 function createJelly(col){
   const group=new THREE.Group();
   const bellGeo=new THREE.SphereGeometry(0.8,16,12,0,Math.PI*2,0,Math.PI*0.6);
@@ -313,24 +339,21 @@ function createJelly(col){
 }
 for(let i=0;i<JELLY_COUNT;i++){
   const col=new THREE.Color().setHSL(0.5+Math.random()*0.4,0.9,0.65);
-  const jelly=createJelly(col); const ang=Math.random()*Math.PI*2, rad=20+Math.random()*70; jelly.position.set(Math.cos(ang)*rad,-6-Math.random()*12,Math.sin(ang)*rad); scene.add(jelly); jellies.push({mesh:jelly, vel:new THREE.Vector3((Math.random()-0.5)*0.2,0,(Math.random()-0.5)*0.2), baseY:jelly.position.y, ph:Math.random()*10});
+  const jelly=createJelly(col); const ang=Math.random()*Math.PI*2, rad=20+Math.random()*60; jelly.position.set(Math.cos(ang)*rad,-6-Math.random()*10,Math.sin(ang)*rad); scene.add(jelly); jellies.push({mesh:jelly, vel:new THREE.Vector3((Math.random()-0.5)*0.2,0,(Math.random()-0.5)*0.2), baseY:jelly.position.y, ph:Math.random()*10});
 }
-
-setProgress(0.85,'天空...');
 
 const skyGeo=new THREE.SphereGeometry(1500,16,16); const skyMat=new THREE.MeshBasicMaterial({color:0x6fb8e8, side:THREE.BackSide}); scene.add(new THREE.Mesh(skyGeo,skyMat));
 
-// Controls
 const controls=new OrbitControls(camera, renderer.domElement);
 controls.enableDamping=true; controls.target.set(0,5,0);
 
-setProgress(0.92,'启动...');
+setProgress(0.9,'启动...');
 
 let mode='orbit';
 document.querySelectorAll('[data-mode]').forEach(btn=>{ btn.addEventListener('click',()=>{ document.querySelectorAll('[data-mode]').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); mode=btn.dataset.mode; if(mode==='boat') controls.target.copy(boat.position); else if(mode==='dive'){ camera.position.set(10,-6,15); controls.target.set(0,-8,0); } else if(mode==='bird'){ camera.position.set(0,100,0); controls.target.set(0,0,0); } else if(mode==='jelly'){ camera.position.set(0,-8,15); controls.target.set(0,-8,0); } }); });
 
 function bindToggle(id, mesh){ const el=document.getElementById(id); if(!el) return; el.addEventListener('click',()=>{ const v=!mesh.visible; mesh.visible=v; el.classList.toggle('active',v); }); }
-bindToggle('tgGrass',grassMesh); bindToggle('tgPalm',trunkInst); bindToggle('tgRocks',rockInst); bindToggle('tgBirds',birdInst); bindToggle('tgFish',fishInst);
+bindToggle('tgGrass',grassMesh); bindToggle('tgRocks',rockInst); bindToggle('tgBirds',birdInst); bindToggle('tgFish',fishInst);
 document.getElementById('tgJelly').addEventListener('click',e=>{ const v=!jellies[0].mesh.visible; jellies.forEach(j=>j.mesh.visible=v); e.target.classList.toggle('active',v); });
 document.getElementById('tgBoat').addEventListener('click',e=>{ boat.visible=!boat.visible; e.target.classList.toggle('active',boat.visible); });
 document.getElementById('tgWire').addEventListener('click',e=>{ const v=!islandMesh.material.wireframe; islandMesh.material.wireframe=v; oceanMat.wireframe=v; e.target.classList.toggle('active',v); });
@@ -348,13 +371,11 @@ function animate(){
   const now=performance.now()/1000, dt=Math.min(now-lastTime,0.05); lastTime=now; const t=now;
   oceanParams.time=t; oceanUniforms.uTime.value=t; oceanUniforms.uWind.value=oceanParams.wind; oceanUniforms.uWaveScale.value=oceanParams.waveScale; gUniforms.uTime.value=t;
 
-  // boat
   sampleOcean(boat.position.x,boat.position.z,t,tmp); boat.position.y=tmp.y+0.6;
   boat.position.add(boatVel.clone().multiplyScalar(dt));
   boatVel.clampLength(0,1.2);
   if(boat.position.length()>250) boatVel.add(new THREE.Vector3().copy(boat.position).negate().normalize().multiplyScalar(0.02));
 
-  // birds
   for(let i=0;i<BIRD_COUNT;i++){
     const b=birds[i];
     b.pos.add(b.vel.clone().multiplyScalar(dt));
@@ -365,7 +386,6 @@ function animate(){
   }
   birdInst.instanceMatrix.needsUpdate=true;
 
-  // fish
   for(let i=0;i<FISH_COUNT;i++){
     const f=fishes[i];
     f.pos.add(f.vel.clone().multiplyScalar(dt));
@@ -376,7 +396,6 @@ function animate(){
   }
   fishInst.instanceMatrix.needsUpdate=true; if(fishInst.instanceColor) fishInst.instanceColor.needsUpdate=true;
 
-  // jellies
   for(const j of jellies){
     j.mesh.position.add(j.vel.clone().multiplyScalar(dt));
     j.mesh.position.y=j.baseY+Math.sin(t*0.6+j.ph)*1.2;
@@ -385,16 +404,15 @@ function animate(){
     if(j.mesh.position.y<-20) j.vel.y+=0.01;
   }
 
-  if(mode==='boat'){ controls.target.lerp(boat.position,0.05); const off=new THREE.Vector3(-15,8,15).applyQuaternion(boat.quaternion); camera.position.lerp(boat.position.clone().add(off),0.04); }
+  if(mode==='boat'){ controls.target.lerp(boat.position,0.05); const off=new THREE.Vector3(-15,8,15); camera.position.lerp(boat.position.clone().add(off),0.04); }
 
   controls.update();
 
-  // minimap
   miniCtx.clearRect(0,0,360,360); miniCtx.fillStyle='#0a2a44'; miniCtx.fillRect(0,0,360,360);
   miniCtx.fillStyle='#2a5a2a'; miniCtx.beginPath(); miniCtx.arc(180,180,70,0,Math.PI*2); miniCtx.fill();
   const bx=(boat.position.x/260)*120+180, bz=(boat.position.z/260)*120+180; miniCtx.fillStyle='#ffaa00'; miniCtx.beginPath(); miniCtx.arc(bx,bz,4,0,Math.PI*2); miniCtx.fill();
 
-  if(t%0.5<0.02) statsEl.innerHTML=`<b>WebGL2</b> · ${renderer.info.render.triangles} 三角<br/>相机 ${camera.position.x.toFixed(1)},${camera.position.y.toFixed(1)},${camera.position.z.toFixed(1)}<br/>FPS ${(1/dt).toFixed(0)}`;
+  if(t%0.5<0.02) statsEl.innerHTML=`<b>WebGL2 修复版</b> · ${renderer.info.render.triangles} 三角<br/>相机 ${camera.position.x.toFixed(1)},${camera.position.y.toFixed(1)},${camera.position.z.toFixed(1)}<br/>FPS ${(1/dt).toFixed(0)}`;
 
   composer.render();
   requestAnimationFrame(animate);
